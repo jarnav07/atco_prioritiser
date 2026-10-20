@@ -1,12 +1,14 @@
-# ATCO prioritiser - ENGAGE KTN 2026 AWARE task-prioritisation baseline
+# ATCO prioritiser - ENGAGE KTN 2026 AWARE task-prioritisation
 
 For each 3 s snapshot of an en-route controller's open-task list (sector ESMM_23), rank the tasks so the one
 the controller is actually working on lands in the top 3. Metric: top-3 hit rate per sample.
 The full brief and plan are in [`docs/agent-plan.md`](docs/agent-plan.md); data facts in
 [`FINDINGS.md`](FINDINGS.md).
 
-This repo is **Tier 0 + Tier 1** of that plan (a frozen harness and honest baselines, validated
-leave-controller-out - the private LB is an unseen controller), plus first Tier-2 and cost-function experiments.
+This repo holds **Tier 0 + Tier 1** of that plan (a frozen harness and honest baselines, validated
+leave-controller-out - the private LB is an unseen controller), Tier-2 and cost-function experiments, and the
+**Tier-3 session-temporal features that take the CV from 0.659 to 0.923** - see FINDINGS.md for the evidence and
+the look-ahead caveat (they read later snapshots of the session; a past-only variant scores like b1).
 
 ## Validation: two splits, both by controller
 
@@ -21,15 +23,25 @@ leave-controller-out - the private LB is an unseen controller), plus first Tier-
 | run_id | model | CV mean ± fold std | mean − 0.5·std | per fold |
 |---|---|---|---|---|
 | `b0_type_prior` | type prior + nearest boundary (= `sample_submission`, 0.352 public) | 0.390 ± 0.033 | 0.374 | .444 .371 .362 .399 .375 |
-| **`b1_lgbm_raw`** | **LightGBM lambdarank, 87 raw features** | **0.659 ± 0.021** | **0.648** | .694 .663 .651 .642 .644 |
+| `b1_lgbm_raw` | LightGBM lambdarank, 87 raw features | 0.659 ± 0.021 | 0.648 | .694 .663 .651 .642 .644 |
 | `b1_lgbm_raw_epool` | b1 + per-episode probability pooling | 0.666 ± 0.026 | 0.653 | .710 .665 .659 .644 .652 |
 | `b2_lgbm_f2` | b1 + 62 within-snapshot relational features (deck hints) | 0.641 ± 0.029 | 0.627 | .680 .658 .640 .617 .611 |
 | `b3_softmax_raw` | cost function (listwise softmax CE), regularisation picked on the hold-out | 0.646 ± 0.027 | 0.632 | .685 .649 .654 .622 .619 |
+| `b4_lgbm_f3` | b1 + 41 session-temporal features (f3: task vanishes, next HMI input on the aircraft, run geometry) | 0.909 ± 0.028 | 0.895 | .955 .893 .885 .894 .919 |
+| `b4_lgbm_f3_epool` | b4 + per-episode probability pooling | 0.906 ± 0.032 | 0.891 | .960 .891 .878 .895 .909 |
+| `b5_lgbm_f3f4` | b4 + f4 v1 (state-change flags by the next run only) | 0.909 ± 0.021 | 0.898 | .943 .891 .894 .910 .906 |
+| `b6_lgbm_f2f3` | b4 + f2 relational features | 0.905 ± 0.026 | 0.892 | .941 .884 .878 .899 .921 |
+| `b7_stack_f3` | session stacking on b4 scores (nested CV) | 0.913 ± 0.025 | 0.900 | .954 .896 .893 .902 .920 |
+| **`b8_lgbm_f345`** | **raw + f3 + f4 (aircraft state changes) + f5 (task context), 600 rounds** | **0.923 ± 0.020** | **0.913** | .952 .898 .911 .923 .931 |
+| `b10_stack_f345_expert` | session stacking on b8-type stage 1 + silent-target expert (nested CV) | 0.923 ± 0.025 | 0.911 | .958 .898 .899 .929 .932 |
+| `b11_lgbm_f3past` | b1 + the past-only part of f3 (no look-ahead) | 0.653 ± 0.024 | 0.641 | .689 .663 .641 .627 .644 |
+| `b12_lgbm_f345_bag3` | b8, seed bag of 3 | 0.922 ± 0.024 | 0.911 | .957 .893 .910 .921 .931 |
 
-Pooled episode-level SE is ≈ 0.85 pt and fold spread ≈ 2 pt, so b1 vs b1+epool (+0.7 pt) is noise. Per the plan's
-tie rule (simpler wins) **`b1_lgbm_raw` is the baseline submission**. All runs are logged in
-[`experiments.csv`](experiments.csv) (`split` = `cv5` or `holdout`); fill in `public_lb` by hand after each
-Kaggle upload.
+Pooled episode-level SE is ≈ 0.85 pt at b1's level and ≈ 0.5 pt at b8's, and a single run moves by ~0.3 pt
+with column order / seed, so only b4 (+25 pt) and b8 (+1.4 pt over b4) are real steps. **`b8_lgbm_f345` is the
+selected submission** (`make submission`); b10 and b12 tie it and are more complex. All runs - including the
+`scan_*` learning-curve / parameter rows - are logged in [`experiments.csv`](experiments.csv) (`split` = `cv5`
+or `holdout`); fill in `public_lb` by hand after each Kaggle upload.
 
 ## Results - hold-out (eval controllers 5, 17, 18)
 
@@ -53,8 +65,8 @@ stays. The cost function is kept for calibrated per-sample probabilities (blendi
 # 1. data: unzip engage-ktn-2026-competition.zip into data/ (train.csv, validation.csv, test.csv,
 #    sample_submission.csv, scorer.py). data/ is git-ignored.
 make setup        # pinned deps, Python 3.13
-make submission   # metric check -> folds check -> b1 CV + full refit -> submissions/submission.csv (~2 min, 4 cores)
-make all          # also b0 and the episode-pooling variant
+make submission   # metric check -> folds check -> b8 CV + full refit -> submissions/submission.csv (~6 min, 4 cores)
+make all          # also b0, b1, episode pooling, b4 (raw + f3) and the past-only variant b11
 make holdout      # freeze/verify harness/holdout.csv, lambdarank vs cost function on the hold-out (~1 min)
 make tune         # pick regularisation by stop-set cost, score the winner once on eval (~4 min)
 ```
@@ -73,8 +85,15 @@ harness/metric.py              top-3 hit; `python -m harness.metric` checks it e
 harness/cv.py                  run_cv / report (per-fold + episode SE) / experiments.csv / artifacts
 harness/submission.py          top-3 CSV writer + validator; validate_sub.py is the CLI
 features/                      feature builders: build(df) -> DataFrame; FEATURE_SETS registry
+  f2_within_sample.py          within-snapshot relational features (hurt; kept for the record)
+  f3_temporal.py               session timeline: task presence before / after, per-aircraft HMI input log, runs
+  f4_state_changes.py          aircraft state changes (clearances, coordination, conditions) around the snapshot
+  f5_task_context.py           tasks of one aircraft, input-type match, inputs in the run, snapshot context
 models/heuristics.py           b0 - reproduces sample_submission exactly (asserted)
-models/lgbm_ranker.py          b1 - LightGBM lambdarank, group = sample_id, NDCG@3 (--objective softmax for the cost function)
+models/lgbm_ranker.py          LightGBM lambdarank, group = sample_id, NDCG@3 (--objective softmax for the cost function,
+                               --preset / --rounds / --seeds); b1, b4, b8 ...
+models/stack_session.py        session-level stacking with nested CV (+ --expert: silent-target ranker)
+models/blend.py                equal-weight softmax blend of artifacts (not used by the selected submission)
 models/cost.py                 the cost function: listwise softmax cross-entropy (objective + eval metrics)
 models/holdout_eval.py         train / early-stop on cost / eval-once runner; --tune selects regularisation
 models/postprocess.py          episode pooling on artifacts
@@ -108,13 +127,12 @@ Then `python -m models.lgbm_ranker --features raw+f2 --run-id b2_lgbm_f2`.
 
 ## Next steps (from the plan, informed by the experiments)
 
-1. **Find out why the relational features hurt.** `f2_within_sample` (62 features) loses 1.8 pt on every fold
-   and under every objective / regularisation tried, from round 25 on - it is not late overfitting. Next:
-   add its groups one at a time (snapshot pct ranks, type pct ranks, type/aircraft age deltas, sibling types,
-   twin, snapshot size) to find the harmful group rather than dropping the whole idea.
-2. **Tier 3 - temporal**: per `(session, task_name)` deltas vs previous snapshots, time since task appeared,
-   and short-window smoothing. Whole-run pooling only bought +0.7 pt because 13 % of runs hold more than one
-   label - see FINDINGS.md.
-3. CatBoost / set-model diversity and a CV-weighted blend on per-sample probabilities (the cost-function model
-   is the calibrated member).
+1. **Silent tasks** are what is left: targets whose task neither closes nor gets an input before the next run
+   (15 % of samples, hit 0.61 vs 0.975 elsewhere); entry + exit coordination are half of b8's misses. Only priors
+   can rank them - e.g. a coordination-specific ranker on the b1-style features, or the aircraft task-set change
+   timing (`l_n_flight` changes within 120 s for 45 % of silent targets vs 24 % of rivals; prototyped, not
+   validated).
+2. **A look-ahead horizon curve for the jury**: cap every future-looking feature at t + Δ (Δ = 3, 15, 30, 60 s)
+   to show what a delayed advisor would reach; past-only is 0.653.
+3. 63 leaves / 50 min rows is +0.4 pt in the scan (noise-level); a paired multi-seed check could adopt it.
 4. Before the final: pick an open licence and add method description (rule 2.8.a).

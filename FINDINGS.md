@@ -78,6 +78,98 @@ snapshots where the task is listed) gives +0.7 pt - inside the noise floor. Trea
 *costs* 1.4 pt. Deployment caveat: live AWARE emits every 3 s regardless, so this gap signal does not exist
 there.
 
+## Session-temporal context: the missing signal family (0.659 → 0.923)
+
+The 0.66 → 0.93 gap to the leaderboard was a missing family, not tuning: **what happens to each task and each
+aircraft in the later snapshots of the same session.** A worked task is usually *finished* - an assumed
+aircraft's assume task closes, a transferred aircraft leaves - and working it usually means an HMI input on its
+aircraft, which later snapshots reveal as a reset of `a_since_flight` (with `a_last_*` saying which input). Every
+snapshot thus discloses the time of the last input on each listed aircraft; collected over a session they give
+the input log per aircraft, so each row can be given the time to the *next* input on its aircraft.
+
+Raw signal on the labelled set (target row vs any row):
+
+| signal | target | any row |
+|---|---|---|
+| task absent from the next snapshot | 19.7 % | 2.0 % |
+| task absent from the first snapshot of the next run | **62.5 %** | 7.3 % |
+| median time until the task is last seen in the session | 9 s | 297 s |
+| median time to the next HMI input on the task's aircraft (when there is one) | 10 s | 215 s |
+| that input comes before the next run starts | **80.8 %** | 11.8 % |
+| the aircraft gets the soonest next input of its snapshot (ties included) | 50.4 % of samples | - |
+
+Single-feature rankers: "task last seen soonest" 0.561, "soonest next input on the aircraft" 0.479 (b0: 0.390).
+Per target type: assume - input within 30 s 91 %, gone at the next run 99 %; transfer - gone 99 % (its input is
+rarely observed: the aircraft leaves the list); zone conflict - input within 30 s 69 % (84 % of them lateral
+clearances), task usually persists (12 % gone); return to route 79 % (93 % lateral); exit conditions 77 % (83 %
+level); entry coordination 20 % / 9 % gone; exit coordination 37 % / 10 % gone. For tasks that persist, the
+aircraft *state* moves instead: before the next run, zone-conflict targets get `k_isClearedHeadingAssigned` /
+`k_isLocked` changes 60 % vs 1–4 % for other zone tasks, exit-conditions targets a new `k_clearedFL` 64 % vs 2 %,
+conflict targets 51 % vs 3 %, exit-coordination targets a coordination-tool change 28 % vs 8 %.
+
+### Feature modules (all keyed within one session, built on each file separately)
+
+- `features/f3_temporal.py` (41 columns): run geometry (position, length, time to run end, gaps); task presence
+  in the previous / next snapshot, last snapshot of the previous run, first snapshot of the next run; presence
+  streak end, time to vanish, first / last seen; the per-aircraft input log - time to the next / since the last
+  input (both callsigns of a conflict), which input, inside this run?, before the next run?, inputs in the next
+  60 s; aircraft still listed at the next run; within-snapshot and within-type ranks of the key times.
+- `features/f4_state_changes.py` (74 columns): 27 aircraft-state columns (clearances, coordination flags,
+  exit / zone / conflict conditions; checked identical across an aircraft's tasks in a snapshot) - did each change
+  by the next run, since the previous run, and the time to the next change of each column and column group at any
+  later appearance.
+- `features/f5_task_context.py` (16 columns): separating the tasks of one aircraft (how many of its tasks vanish,
+  rank of this one), does the next input match the task type (assume ↔ assume, transfer ↔ transfer, zone / RTR ↔
+  lateral, exit conditions / conflicts / QoS ↔ level), inputs inside the run window and before the next run, tasks
+  the aircraft gains by the next run, and snapshot context (how many tasks vanish / get an input at all).
+
+| run_id | features | CV mean ± fold std | Δ vs b1 |
+|---|---|---|---|
+| `b4_lgbm_f3` | raw + f3, 300 rounds | 0.909 ± 0.028 | +25.0 pt |
+| `b5_lgbm_f3f4` | raw + f3 + f4 v1 (group-level change flags only) | 0.909 ± 0.021 | +25.0 |
+| scan | raw + f3 + f5, 300 / 600 / 900 rounds | 0.914 / 0.917 / 0.918 | +25.5 / +25.8 / +25.9 |
+| **`b8_lgbm_f345`** | **raw + f3 + f4 + f5, 600 rounds** | **0.923 ± 0.020** | **+26.4** |
+
+b8 by target type (b1 → b4 → b8): transfer .86 → .99 → .99, assume .83 → .98 → .99, zone .72 → .91 → .94, entry
+coordination .40 → .72 → .75, return to route .49 → .88 → .90, exit coordination .09 → .63 → .66, exit conditions
+.16 → .84 → .87, conflict .42 → .82 → .87, QoS .17 → .87 → .91. Per controller b8 ranges 0.77 (controller 1, one
+session full of rare types) to 0.97.
+
+### Leakage audit (CV jumped above 0.85, so this was checked before anything else)
+
+- No builder reads `target_index`: f3, f4, f5 and the stack's stage-2 context are **bit-identical** when built on
+  a frame with `target_index` dropped or randomly permuted (asserted).
+- Every feature is computed within one session (`session`, `t_s`, `task_name`, callsigns are grouping keys only;
+  `cv.check_features` still refuses them as inputs); folds are by controller, so a session never straddles train
+  and validation. Test features are built from `test.csv` alone.
+- Test looks like the labelled data on these features: task gone at the next run 7.3 % vs 8.2 % of rows, input
+  before the next run 11.8 % vs 12.7 %, the same gap distribution (median 3 s, 75 % 4 s).
+- Sanity check only (not used in any model): the test top-1 type mix moved from b1's 876 transfers / 6 exit
+  coordinations to b8's 573 / 73, towards the counts implied by the deck (516 / 112).
+
+### Look-ahead: this is a retrospective labeller, not a live predictor
+
+**Almost every f3/f4/f5 column uses future snapshots of the session.** That is legal here (the whole test file
+is given and no label is read), but a live AWARE system would not have them. Measured: the backward-looking
+subset of f3 (`raw+f3past`: run position, gaps to the past, presence in the previous snapshot / run, time since
+first seen, time since the last input) scores **0.653 ± 0.024 (`b11_lgbm_f3past`) - no better than b1 (0.659)**.
+So the whole +26 pt is look-ahead: the model recognises the *effects* of the controller's work (the task closes,
+the input lands, the clearance changes) after the fact. Even the backward-looking columns lean on the dataset's
+run structure (samples exist only while a labelled task is worked), which a live 3 s feed would not have. For the
+jury: the method answers "which task was the controller on at time t, given the next minutes of the log" - useful
+for automatic annotation of recordings, and a delayed (t + Δ) advisor; a real-time Level 2A advisor would need the
+past-only number (≈ b1) and gaze data.
+
+### What is left: silent tasks
+
+Call a target **silent** when its task is still listed at the next run and its aircraft gets no input before
+then: 1,918 samples (15 %). Hit rate on silent targets b1 0.36 → b4 0.53 → b8 0.61, on the rest 0.71 → 0.973 →
+0.975. The per-column "time to the next change at any later appearance" (f4 v2) is what moved silent targets
+(+8 pt; e.g. `monitoring_rule_activated` changes later for 46 % of silent entry-coordination targets vs 9 % of
+their same-type rivals). Entry + exit coordination are about half of b8's ≈1,020 misses (≈520); their timelines
+show no state change at all around the labelled moment (task age 60–150 s, nothing in `k_out_*`, `x_isc_*`, cleared
+level or tool flags), so only priors can rank them - which is where b1-style models top out.
+
 ## From the briefing deck, checked against the data
 
 `AWARE_prioritisation_challenge.pdf` (34 slides; not committed - slide 33 carries the private Kaggle invite).
@@ -112,6 +204,16 @@ in any model here.** Use it only as a sanity check on the predicted type mix of 
 | Within-snapshot relational features (`f2_within_sample`: snapshot / type pct ranks, age vs oldest of type and of aircraft, sibling types, twin, snapshot size) | 0.641 vs 0.659 (−1.8 pt), worse on all 5 folds |
 | … with stronger regularisation, or the `rank_xendcg` objective | 0.641 / 0.640 at 500 rounds - still below raw at every checkpoint from round 25 |
 | Cost function = listwise softmax cross-entropy (`models/cost.py`), rounds and regularisation chosen by lowest cost on the stop controllers | hold-out eval +1.2 pt (0.641 vs 0.629) but 5-fold CV −1.3 pt (0.646 vs 0.659; 95 % CI −2.2 to −0.4, better on 2 of 18 controllers). Better calibrated (eval cost 2.19 vs 2.24), not better ranked |
+| Episode pooling on the temporal model (`b4_lgbm_f3_epool`) | 0.906 vs 0.909 - the run-level f3 features already carry what pooling did |
+| f2 relational features on top of f3 (`b6_lgbm_f2f3`) | 0.905 vs 0.909 (worse on 3 of 5 folds) |
+| f2 group by group on top of raw + f3 + f5 (scan rows `scan_raw+f3+f5+f2*`, at 300 / 600 / 900 rounds; reference 0.914 / 0.917 / 0.918) | snapshot pct ranks 0.913 / 0.915 / 0.915; type pct ranks 0.912 / 0.914 / 0.914; age deltas 0.915 / 0.913 / 0.916; sibling types 0.913 / 0.916 / 0.916; twin 0.914 / 0.917 / 0.918; snapshot size 0.912 / 0.917 / 0.917. No group helps (all within −0.35 … +0.05 pt); the two 23-column percentile-rank groups are the most negative, consistent with the original −1.8 pt being many weak, noisy columns rather than one harmful group |
+| f4 v1: only "did the aircraft state change by the next run" flags (`b5_lgbm_f3f4`) | 0.909, flat: the flags are NaN whenever the aircraft leaves, duplicating f3's vanish signal, and clearance changes coincide with the inputs f3 already sees. v2 adds per-column time to the next change at any later appearance - that is what helps (b8) |
+| Session stacking (`models/stack_session.py`): stage 2 on stage-1 scores turned into session context - (run, task) mean probability, best run-mean of the same task in earlier / later runs, how often it tops other runs - with nested CV | on raw + f3 (`b7_stack_f3`) 0.913 vs 0.909 (+0.4, 4 of 5 folds); on raw + f3 + f4 + f5 with a silent-target expert (`b10_stack_f345_expert`) 0.9232 vs 0.9229 - nothing left once stage 1 is strong. The stage-1 model predicts one task as top of more than one run 8 % of the time vs 2.9 % in truth, but fixing that rarely changes the top 3 |
+| LightGBM settings on raw + f3 + f5 (scan rows): 15 leaves, feature_fraction 0.5, lambdarank truncation 10, `rank_xendcg`, binary logloss | all ≤ base at 300–1,200 rounds (best 0.914–0.915 vs 0.918). 63 leaves / 50 min rows is +0.4 on the full set in the same column order (0.924 at 900 rounds) - noise-level vs b8 |
+| Seed bag of 3 (`b12_lgbm_f345_bag3`) | 0.9224 vs 0.9229 |
+| `row_index` (the list order) | AWARE lists tasks by callsign, reverse-alphabetical; target relative position 0.531 vs 0.514 for all rows - a callsign proxy, not used |
+| Label-type sequence across runs | P(type of the next run's label \| this run's) ≈ the marginal, except exit coordination → exit conditions (0.22 vs 0.03) - not used |
+| Within-run switches | 27 % of samples sit in runs with > 1 label; first segments hit 0.835 (b7). Their task vanishes inside the run 44 % of the time, which the soonest-vanish / soonest-input ranks already encode |
 
 Learning curves of the raw lambdarank baseline (5-fold CV): 0.630 / 0.638 / 0.652 / 0.656 / **0.659** / 0.652 at
 25 / 50 / 100 / 200 / 300 / 500 rounds - the fixed 300 is at the peak. Stronger regularisation (15 leaves, 400
@@ -121,3 +223,10 @@ min rows, 0.5 colsample, L2 10) tops out at 0.649; `rank_xendcg` at 0.648.
 
 5 folds of 2,469–2,757 samples carry 575–723 runs each ⇒ per-fold SE ≈ 1.8–2.1 pt; pooled SE ≈ 0.85 pt.
 Fold-to-fold spread of b1 is ±2.1 pt. **Treat any change under ~1 pt as noise.**
+
+At the 0.92 level the pooled episode SE is ≈ 0.48 pt, but run-to-run noise is of the same size: the same
+features in a different column order (which changes LightGBM's `feature_fraction` draws) gave 0.9196 (scan) vs
+0.9229 (b8). Differences under ~0.5 pt between single runs at this level are not evidence.
+
+Scan rows (`scan_*` in `experiments.csv`) are learning curves from a scratch script on cached features (same frozen
+folds, same metric); the earliest ones kept only mean ± fold std. Decisions rest on the CLI runs (`b*`).

@@ -66,25 +66,42 @@ def _groups(df: pd.DataFrame) -> np.ndarray:
 
 
 def fit(df: pd.DataFrame, X: pd.DataFrame, objective: str = "lambdarank", rounds: int = NUM_ROUNDS,
-        reg: str = "base", preset: str = "base") -> lgb.Booster:
+        reg: str = "base", preset: str = "base", seed: int = SEED) -> lgb.Booster:
     ds = lgb.Dataset(X, label=df[LABEL].to_numpy(), group=_groups(df), categorical_feature=CATEGORICAL)
-    if objective == "lambdarank":
-        params = {**PARAMS, **PRESETS[preset]}
-    elif objective == "binary":   # pointwise logloss on the same trees: a blend member that errs differently
-        params = {**PARAMS, **PRESETS[preset], "objective": "binary", "metric": "binary_logloss"}
-        params.pop("eval_at")
-    else:
-        params = {**SOFTMAX_PARAMS, **GRID[reg]}
-    return lgb.train(params, ds, num_boost_round=rounds)
+    params = {**PARAMS, **PRESETS[preset]} if objective == "lambdarank" else {**SOFTMAX_PARAMS, **GRID[reg]}
+    return lgb.train({**params, "seed": seed}, ds, num_boost_round=rounds)
+
+
+class SeedBag:
+    """Average of boosters that differ only in their seed (feature_fraction subsampling): damps the +-0.3 pt
+    run-to-run noise that column subsampling alone causes on this CV."""
+
+    def __init__(self, boosters: list):
+        self.boosters = boosters
+
+    def predict(self, X):
+        return np.mean([b.predict(X) for b in self.boosters], axis=0)
+
+    def feature_importance(self, kind: str = "gain"):
+        return np.mean([b.feature_importance(kind) for b in self.boosters], axis=0)
+
+
+def fit_bag(df: pd.DataFrame, X: pd.DataFrame, seeds: int = 1, **fit_args):
+    """seeds == 1 is exactly fit(); otherwise a SeedBag of fits with seeds SEED, SEED + 1, ..."""
+    if seeds == 1:
+        return fit(df, X, **fit_args)
+    boosters = [fit(df, X, seed=SEED + k, **fit_args) for k in range(seeds)]
+    return SeedBag(boosters)
 
 
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--features", default="raw", choices=sorted(FEATURE_SETS))
-    ap.add_argument("--objective", default="lambdarank", choices=["lambdarank", "softmax", "binary"])
+    ap.add_argument("--objective", default="lambdarank", choices=["lambdarank", "softmax"])
     ap.add_argument("--rounds", type=int, default=NUM_ROUNDS)
     ap.add_argument("--reg", default="base", choices=sorted(GRID), help="regularisation setting (softmax only)")
     ap.add_argument("--preset", default="base", choices=sorted(PRESETS), help="lambdarank setting")
+    ap.add_argument("--seeds", type=int, default=1, help="seed bag size")
     ap.add_argument("--run-id", default=None)
     args = ap.parse_args()
     run_id = args.run_id or f"b1_lgbm_{args.features}"
@@ -98,18 +115,20 @@ def main() -> None:
     print(f"[{run_id}] {X_lab.shape[1]} features, {lab['sample_id'].nunique()} samples")
 
     def fit_predict(train: pd.DataFrame, valid: pd.DataFrame) -> np.ndarray:
-        return fit(train, X_lab.loc[train.index], **fit_args).predict(X_lab.loc[valid.index])
+        return fit_bag(train, X_lab.loc[train.index], args.seeds, **fit_args).predict(X_lab.loc[valid.index])
 
     oof = cv.run_cv(lab, folds, fit_predict)
     rep = cv.report(lab, oof, folds)
     desc = f"LightGBM {args.objective}, reg={args.reg}, {args.rounds} rounds, features={args.features}"
     if args.preset != "base":
         desc += f", preset={args.preset}"
+    if args.seeds > 1:
+        desc += f", seed bag of {args.seeds}"
     cv.log_experiment(run_id, desc, rep,
                       features=cv.features_hash(X_lab.columns))
     cv.save_artifact(run_id, "oof", lab, oof)
 
-    booster = fit(lab, X_lab, **fit_args)
+    booster = fit_bag(lab, X_lab, args.seeds, **fit_args)
     score = booster.predict(X_test)
     cv.save_artifact(run_id, "test", test, score)
     imp = pd.Series(booster.feature_importance("gain"), index=X_lab.columns).sort_values(ascending=False)

@@ -1,10 +1,11 @@
 """Tier 5: equal-weight blend of runs on artifacts.
 
-Each member's row scores are turned into a per-sample softmax probability (temperature 1 on the raw score,
-which suits lambdarank and binary-logit scores alike) and averaged with equal weights - no weights are fitted,
-so the blend's CV is not optimistically selected beyond the choice of members.
+Each member's row scores are turned into a per-sample softmax probability (temperature 1 on the raw score) and
+averaged with equal weights - no weights are fitted, so the blend's CV is not optimistically selected beyond the
+choice of members. (Not used by the selected submission: a 3-seed bag of b8 and the session stack b10 both tied
+b8 on CV, so there was nothing distinct to blend.)
 
-    python -m models.blend --runs b8_lgbm_f3f5 b8_binary_f3f5 --run-id b9_blend
+    python -m models.blend --runs b4_lgbm_f3 b8_lgbm_f345 --run-id blend_b4_b8
 """
 import argparse
 
