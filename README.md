@@ -6,9 +6,14 @@ The full brief and plan are in [`docs/agent-plan.md`](docs/agent-plan.md); data 
 [`FINDINGS.md`](FINDINGS.md).
 
 This repo holds **Tier 0 + Tier 1** of that plan (a frozen harness and honest baselines, validated
-leave-controller-out - the private LB is an unseen controller), Tier-2 and cost-function experiments, and the
-**Tier-3 session-temporal features that take the CV from 0.659 to 0.923** - see FINDINGS.md for the evidence and
-the look-ahead caveat (they read later snapshots of the session; a past-only variant scores like b1).
+leave-controller-out - the private LB is an unseen controller), Tier-2 and cost-function experiments, and two
+tracks beyond them:
+
+- **Causal track - the selected submission.** Predictions for a snapshot use only that snapshot and earlier ones of
+  its session (`python -m harness.causal <feature set>` proves it by truncating sessions). Best: **`c3_blend_causal`,
+  CV 0.673** (b1 0.659).
+- **Look-ahead track.** Reading *later* snapshots of the session takes the CV to **0.923** (`b8_lgbm_f345`), but that
+  is not available when predictions must be made snapshot by snapshot - see FINDINGS.md.
 
 ## Validation: two splits, both by controller
 
@@ -18,7 +23,28 @@ the look-ahead caveat (they read later snapshots of the session; a past-only var
   five who flew all three scenarios: the private LB's shape), stop = 15, 16 (the other two), train = the other 13.
   The cost function is monitored on *stop* to choose rounds and regularisation; *eval* is scored once.
 
-## Results - 5-fold CV (GroupKFold by controller)
+## Results - causal track, 5-fold CV (GroupKFold by controller)
+
+Every feature set below passes `harness.causal` (rows up to a cut are identical when the session is truncated).
+
+| run_id | model | CV mean ± fold std | per fold |
+|---|---|---|---|
+| `b1_lgbm_raw` | LightGBM lambdarank, 87 raw features (one snapshot) | 0.659 ± 0.021 | .694 .663 .651 .642 .644 |
+| `b11_lgbm_f3past` | b1 + past-only session timeline (f3 subset) | 0.653 ± 0.024 | .689 .663 .641 .627 .644 |
+| `c1_lgbm_raw_f6` | b1 + causal session context (f6: run timing, past inputs / state changes, controller style) | 0.656 ± 0.020 | .692 .650 .643 .650 .645 |
+| `c1_lgbm_raw_f3past_f6` | b1 + f3 past-only + f6 | 0.655 ± 0.028 | .697 .667 .646 .627 .639 |
+| `c2_consensus_raw` | b1 + cross-controller consensus (f7: when other controllers worked this task on the shared traffic) | 0.654 ± 0.021 | .690 .650 .645 .644 .640 |
+| `c4_consensus_inputs_raw` | c2 + other controllers' HMI input timing on the aircraft | 0.658 ± 0.017 | .686 .656 .642 .655 .652 |
+| **`c3_blend_causal`** | **equal-weight softmax blend of b1 + c1_lgbm_raw_f6 + c2_consensus_raw** | **0.673 ± 0.021** | .711 .668 .664 .659 .664 |
+
+No single causal feature family beats b1, but the three models (snapshot geometry, causal session context, consensus
+of other controllers) err differently: the blend is **+1.4 pt over b1** (paired episode bootstrap 95 % CI +0.7 to
++2.2; better for 16 of 18 controllers). Its members were fixed as "one model per signal family" before looking at
+blend scores; the best of all 127 member subsets (0.674) and the 4-member blend with c4 (0.675) are within noise and
+not adopted. `f7` needs recordings of other controllers on the same traffic (here: the labelled sessions; in CV only
+the training-fold ones), and the run timing in `f6` relies on the dataset keeping only labelled moments.
+
+## Results - look-ahead track, 5-fold CV (GroupKFold by controller)
 
 | run_id | model | CV mean ± fold std | mean − 0.5·std | per fold |
 |---|---|---|---|---|
@@ -44,8 +70,8 @@ the look-ahead caveat (they read later snapshots of the session; a past-only var
 > retrospective labeller ("which task was the controller on, given what happened next"), not a real-time advisor.
 
 Pooled episode-level SE is ≈ 0.85 pt at b1's level and ≈ 0.5 pt at b8's, and a single run moves by ~0.3 pt
-with column order / seed, so only b4 (+25 pt) and b8 (+1.4 pt over b4) are real steps. **`b8_lgbm_f345` is the
-selected submission** (`make submission`); b10 and b12 tie it and are more complex. All runs - including the
+with column order / seed, so only b4 (+25 pt) and b8 (+1.4 pt over b4) are real steps. `b8_lgbm_f345` is the best
+look-ahead model (`make lookahead`); b10 and b12 tie it and are more complex. All runs - including the
 52 `scan_*` learning-curve / parameter rows (34 without per-fold scores; their best value, 0.924, is selected
 from 52 looks at the same folds and was not adopted - see FINDINGS.md) - are logged in
 [`experiments.csv`](experiments.csv) (`split` = `cv5` or `holdout`); fill in `public_lb` by hand after each
@@ -74,8 +100,9 @@ probabilities (blending, Tier 5).
 # 1. data: unzip engage-ktn-2026-competition.zip into data/ (train.csv, validation.csv, test.csv,
 #    sample_submission.csv, scorer.py). data/ is git-ignored.
 make setup        # pinned deps, Python 3.13
-make submission   # metric check -> folds check -> b8 CV + full refit -> submissions/submission.csv (~6 min, 4 cores)
-make all          # also b0, b1, episode pooling, b4 (raw + f3) and the past-only variant b11
+make submission   # metric + folds + causality checks -> causal blend c3 -> submissions/submission.csv (~8 min, 4 cores)
+make lookahead    # the look-ahead model b8 (CV 0.923; reads later snapshots) -> submissions/b8_lgbm_f345.csv
+make all          # also b0, episode pooling, b4 (raw + f3) and the past-only variant b11
 make holdout      # freeze/verify harness/holdout.csv, lambdarank vs cost function on the hold-out (~1 min)
 make tune         # pick regularisation by stop-set cost, score the winner once on eval (~4 min)
 ```
@@ -93,16 +120,20 @@ harness/holdout.py + .csv      frozen train / stop / eval controller split
 harness/metric.py              top-3 hit; `python -m harness.metric` checks it equals data/scorer.py
 harness/cv.py                  run_cv / report (per-fold + episode SE) / experiments.csv / artifacts
 harness/submission.py          top-3 CSV writer + validator; validate_sub.py is the CLI
+harness/causal.py              causality check: truncated sessions must give identical features for earlier rows
 features/                      feature builders: build(df) -> DataFrame; FEATURE_SETS registry
   f2_within_sample.py          within-snapshot relational features (hurt; kept for the record)
   f3_temporal.py               session timeline: task presence before / after, per-aircraft HMI input log, runs
   f4_state_changes.py          aircraft state changes (clearances, coordination, conditions) around the snapshot
   f5_task_context.py           tasks of one aircraft, input-type match, inputs in the run, snapshot context
+  f6_causal.py                 causal: run timing, past inputs / state changes per aircraft, controller style
+  f7_consensus.py              causal scenario clock + when other controllers worked / acted on this task
 models/heuristics.py           b0 - reproduces sample_submission exactly (asserted)
 models/lgbm_ranker.py          LightGBM lambdarank, group = sample_id, NDCG@3 (--objective softmax for the cost function,
                                --preset / --rounds / --seeds); b1, b4, b8 ...
 models/stack_session.py        session-level stacking with nested CV (+ --expert: silent-target ranker)
-models/blend.py                equal-weight softmax blend of artifacts (not used by the selected submission)
+models/consensus_ranker.py     LightGBM with fold-aware consensus features (f7); --inputs adds input timing
+models/blend.py                equal-weight softmax blend of artifacts (the selected causal submission c3)
 models/cost.py                 the cost function: listwise softmax cross-entropy (objective + eval metrics)
 models/holdout_eval.py         train / early-stop on cost / eval-once runner; --tune selects regularisation
 models/postprocess.py          episode pooling on artifacts
@@ -136,7 +167,12 @@ Then `python -m models.lgbm_ranker --features raw+f2 --run-id b2_lgbm_f2`.
 
 ## Next steps (from the plan, informed by the experiments)
 
-1. **Silent tasks** are what is left: targets whose task neither closes nor gets an input before the next run
+0. **Causal track** (the one that counts if predictions must be made snapshot by snapshot): it sits at ~0.67 and
+   every single-model feature family lands at 0.653-0.659. Most misses are coordination tasks (exit coordination
+   hit 9 %, entry coordination 40 % for b1), which leave no trace in the current or earlier snapshots. Ideas not
+   tried yet: a set / sequence neural model over the snapshot history (different inductive bias for the blend),
+   per-type specialist rankers, and seed bags of the blend members.
+1. **Silent tasks** are what is left on the look-ahead track: targets whose task neither closes nor gets an input before the next run
    (15 % of samples, hit 0.61 vs 0.975 elsewhere); entry + exit coordination are half of b8's misses. Only priors
    can rank them - e.g. a coordination-specific ranker on the b1-style features, or the aircraft task-set change
    timing (`l_n_flight` changes within 120 s for 45 % of silent targets vs 24 % of rivals; prototyped, not

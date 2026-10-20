@@ -175,6 +175,49 @@ their same-type rivals). Entry + exit coordination are about half of b8's ≈1,0
 show no state change at all around the labelled moment (task age 60–150 s, nothing in `k_out_*`, `x_isc_*`, cleared
 level or tool flags), so only priors can rank them - which is where b1-style models top out.
 
+## Causal track: current and earlier snapshots only (0.659 → 0.673)
+
+If predictions must be made snapshot by snapshot, everything that reads later snapshots (f3 / f4 / f5 look-ahead)
+is out. `harness/causal.py` makes the rule mechanical: build features on whole sessions and on sessions cut at
+random times; every row up to the cut must get identical values (raw+f3past, raw+f2, raw+f6 and the scenario
+clock pass; full f3 fails with its 29 look-ahead columns).
+
+**Past-only signals are weak** (labelled set, targets vs other tasks):
+
+| Signal | Targets | Others | Note |
+|---|---|---|---|
+| input on the aircraft since this run started | 6.5 % | 1.5 % | P(target \| flag) 0.11; inputs land at the *end* of an episode (1.4 % at run position 0, 19.5 % at 6+) |
+| coordination state changed during this run | 2.8 % | 0.5 % | lift 5.4, tiny coverage |
+| coordination state changed 0–10 s before the run started | 3.6 % | 1.0 % | lift 3.5 |
+| task appeared shortly before the run started | – | – | no lift (0.5–0.8) |
+| same aircraft as the previous episode | 6.2 % | – | the episode sequence carries little |
+| tool flags (`k_transferToolActivation` on transfer tasks) | 39 % | 14 % | already raw columns |
+
+b1's misses by type: exit coordination (hit 9 %, 675 misses), entry coordination (40 %, 645), zone conflict (72 %,
+601), assume (83 %, 566), transfer (86 %, 500), return to route (49 %, 479), exit conditions (16 %, 377).
+
+**Cross-controller consensus.** All controllers fly the same three scenarios; timestamps are wall-clock, so
+`f7_consensus.scenario_clock` aligns sessions by aircraft sector-arrival times (t_s + time_to_sector): residuals
+of ~1 s median across sessions. Estimated causally (running median over the aircraft seen so far). On that clock,
+"how many other controllers worked this task within ±60 s" alone gives top-3 **0.48** (leave-one-controller-out
+pool; type prior 0.39, chance 0.09); other controllers' input timing on the aircraft alone gives 0.24.
+
+| Experiment (5-fold CV) | Result |
+|---|---|
+| raw + f6 (run timing, past inputs / state changes per aircraft, controller assume / transfer style) | 0.656 |
+| raw + f3 past-only + f6 | 0.655 |
+| raw + f7 consensus (fold-aware: held-out controllers only see training-fold labels) | 0.654 |
+| raw + f7 consensus + other controllers' input timing | 0.658 |
+| causal prefix pooling of b1 probabilities within the run (mean / EWMA, mixed or not) | 0.652–0.657 (raw 0.658) |
+| **equal-weight blend b1 + raw+f6 + raw+f7 (one model per signal family)** | **0.673**, +1.4 pt, 95 % CI +0.7 to +2.2, 16 / 18 controllers better |
+| best of all 127 blend subsets of 7 causal models | 0.674 (selected from 127 looks - not adopted) |
+| 4-member blend adding the input-timing consensus model | 0.675 (noise) |
+
+No causal feature family beats raw features alone - the snapshot already holds the geometry the consensus
+mostly encodes - but the three models err differently, and the blend is the only clean causal step so far.
+Caveats: f7 needs recordings of other controllers on the same traffic (a live sector never repeats), and f6's run
+timing relies on the files keeping only labelled moments.
+
 ## From the briefing deck, checked against the data
 
 `AWARE_prioritisation_challenge.pdf` (34 slides; not committed - slide 33 carries the private Kaggle invite).

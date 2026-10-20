@@ -1,14 +1,16 @@
 PY ?= python
-# the selected submission (5-fold leave-controller-out CV 0.923 vs 0.659 for b1_lgbm_raw)
-BASELINE := b8_lgbm_f345
+# the selected submission: causal blend (current + earlier snapshots only), 5-fold leave-controller-out CV 0.673
+BASELINE := c3_blend_causal
+# best look-ahead model (reads later snapshots of the session; not usable when predictions must be causal), CV 0.923
+LOOKAHEAD := b8_lgbm_f345
 
-.PHONY: all submission setup check folds b0 b1 epool temporal final select holdout tune
+.PHONY: all submission setup check folds b0 b1 epool causal causal-check temporal lookahead select holdout tune
 
-# every baseline + the temporal models + the chosen submission
-all: check folds b0 b1 epool temporal final select
+# every baseline, the causal blend, the look-ahead models, and the chosen submission
+all: check folds b0 b1 epool causal temporal lookahead select
 
-# the one-command path from data/ to submissions/submission.csv
-submission: check folds final select
+# the one-command path from data/ to submissions/submission.csv (causal, ~8 min on 4 cores)
+submission: check folds causal-check causal select
 
 setup:
 	$(PY) -m pip install -r requirements.txt
@@ -31,14 +33,24 @@ b1:
 epool:
 	$(PY) -m models.postprocess --from b1_lgbm_raw
 
+# truncating sessions must leave every earlier row's features unchanged
+causal-check:
+	$(PY) -m harness.causal raw+f6
+
+# causal blend: raw (b1) + causal session context (f6) + cross-controller consensus (f7), equal-weight softmax
+causal: b1
+	$(PY) -m models.lgbm_ranker --features raw+f6 --run-id c1_lgbm_raw_f6
+	$(PY) -m models.consensus_ranker --base raw --run-id c2_consensus_raw
+	$(PY) -m models.blend --runs b1_lgbm_raw c1_lgbm_raw_f6 c2_consensus_raw --run-id $(BASELINE)
+
 # Tier 3: session-temporal context (f3) alone, and its past-only subset (no look-ahead)
 temporal:
 	$(PY) -m models.lgbm_ranker --features raw+f3 --run-id b4_lgbm_f3
 	$(PY) -m models.lgbm_ranker --features raw+f3past --run-id b11_lgbm_f3past
 
-# the selected model: raw + temporal (f3) + aircraft state changes (f4) + task context (f5), 600 rounds (~6 min)
-final:
-	$(PY) -m models.lgbm_ranker --features raw+f3+f4+f5 --rounds 600 --run-id $(BASELINE)
+# look-ahead: raw + temporal (f3) + aircraft state changes (f4) + task context (f5), 600 rounds (~6 min)
+lookahead:
+	$(PY) -m models.lgbm_ranker --features raw+f3+f4+f5 --rounds 600 --run-id $(LOOKAHEAD)
 
 select:
 	cp submissions/$(BASELINE).csv submissions/submission.csv

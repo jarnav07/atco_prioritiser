@@ -4,7 +4,6 @@ b1_lgbm_raw_epool,cv5,"b1_lgbm_raw + per-(episode, task) mean softmax prob over 
 b2_lgbm_f2,cv5,"LightGBM lambdarank, 300 rounds, features=raw+f2",0.6413,0.0287,0.6411,0.0086,0.6802 0.6580 0.6403 0.6168 0.6111,,a8eeaf61,42,2026-10-20 16:01
 ho_softmax_tuned_raw,holdout,"holdout: softmax, features=raw, rounds=1067 (early-stopped on stop-set cost) grid=strong",0.6366,0.0423,0.6406,0.0175,5:0.5926 17:0.6400 18:0.6771,,406b4b5c,42,2026-10-20 16:21
 b3_softmax_raw,cv5,"LightGBM softmax, reg=strong, 1067 rounds, features=raw",0.6457,0.0268,0.6455,0.0086,0.6847 0.6493 0.6538 0.6217 0.6192,,406b4b5c,42,2026-10-20 16:24
-b1_lgbm_raw,cv5,"LightGBM lambdarank, reg=base, 300 rounds, features=raw",0.6587,0.0213,0.6584,0.0085,0.6939 0.6627 0.6509 0.6424 0.6436,,406b4b5c,42,2026-10-20 16:27
 ho_lambdarank_raw,holdout,"holdout: lambdarank, features=raw, rounds=300 (fixed)",0.6257,0.04,0.6291,0.0176,5:0.5810 17:0.6381 18:0.6582,,406b4b5c,42,2026-10-20 16:28
 ho_softmax_raw,holdout,"holdout: softmax, features=raw, rounds=148 (early-stopped on stop-set cost)",0.6227,0.0381,0.6268,0.0176,5:0.5887 17:0.6155 18:0.6640,,406b4b5c,42,2026-10-20 16:28
 ho_lambdarank_raw_f2,holdout,"holdout: lambdarank, features=raw+f2, rounds=300 (fixed)",0.6198,0.0275,0.6224,0.0177,5:0.5917 17:0.6211 18:0.6465,,a8eeaf61,42,2026-10-20 16:28
@@ -70,3 +69,9 @@ scan_raw+f3+f5+f4_l63_r300,cv5,"scan (scratch curve.py, per-fold not kept): Ligh
 scan_raw+f3+f5+f4_l63_r600,cv5,"scan (scratch curve.py, per-fold not kept): LightGBM lambdarank num_leaves 63, min_data_in_leaf 50, 600 rounds, features=raw+f3+f5+f4",0.9239,0.020,,,,,,42,2026-10-20 20:32
 scan_raw+f3+f5+f4_l63_r900,cv5,"scan (scratch curve.py, per-fold not kept): LightGBM lambdarank num_leaves 63, min_data_in_leaf 50, 900 rounds, features=raw+f3+f5+f4",0.9244,0.022,,,,,,42,2026-10-20 20:32
 b8_lgbm_f345,cv5,"LightGBM lambdarank, reg=base, 600 rounds, features=raw+f3+f4+f5",0.9229,0.0203,0.9223,0.0048,0.9517 0.8984 0.9106 0.9226 0.9309,,c76f0c85,42,2026-10-20 20:36
+c1_lgbm_raw_f6,cv5,"LightGBM lambdarank, reg=base, 300 rounds, features=raw+f6",0.6561,0.0203,0.6555,0.0085,0.6919 0.6500 0.6432 0.6505 0.6447,,e9efa8b9,42,2026-10-20 21:04
+c1_lgbm_raw_f3past_f6,cv5,"LightGBM lambdarank, reg=base, 300 rounds, features=raw+f3past+f6",0.6552,0.0277,0.655,0.0085,0.6971 0.6670 0.6465 0.6266 0.6389,,b155cd2e,42,2026-10-20 21:06
+c2_consensus_raw,cv5,"LightGBM lambdarank, base=raw + f7 consensus (fold-aware), 300 rounds, preset=base",0.6538,0.0205,0.6533,0.0085,0.6899 0.6503 0.6447 0.6440 0.6400,,,42,2026-10-20 21:10
+c3_blend_causal,cv5,equal-weight per-sample softmax blend of b1_lgbm_raw + c1_lgbm_raw_f6 + c2_consensus_raw,0.6731,0.0213,0.6726,0.0084,0.7108 0.6678 0.6637 0.6590 0.6641,,,42,2026-10-20 21:17
+c4_consensus_inputs_raw,cv5,"LightGBM lambdarank, base=raw + f7 consensus + input timing (fold-aware), 300 rounds, preset=base",0.6582,0.0167,0.6578,0.0085,0.6863 0.6561 0.6418 0.6549 0.6520,,,42,2026-10-20 21:21
+b1_lgbm_raw,cv5,"LightGBM lambdarank, reg=base, 300 rounds, features=raw",0.6587,0.0213,0.6584,0.0085,0.6939 0.6627 0.6509 0.6424 0.6436,,406b4b5c,42,2026-10-20 21:23
