@@ -69,9 +69,9 @@ scan_raw+f3+f5+f4_l63_r300,cv5,"scan (scratch curve.py, per-fold not kept): Ligh
 scan_raw+f3+f5+f4_l63_r600,cv5,"scan (scratch curve.py, per-fold not kept): LightGBM lambdarank num_leaves 63, min_data_in_leaf 50, 600 rounds, features=raw+f3+f5+f4",0.9239,0.020,,,,,,42,2026-10-20 20:32
 scan_raw+f3+f5+f4_l63_r900,cv5,"scan (scratch curve.py, per-fold not kept): LightGBM lambdarank num_leaves 63, min_data_in_leaf 50, 900 rounds, features=raw+f3+f5+f4",0.9244,0.022,,,,,,42,2026-10-20 20:32
 b8_lgbm_f345,cv5,"LightGBM lambdarank, reg=base, 600 rounds, features=raw+f3+f4+f5",0.9229,0.0203,0.9223,0.0048,0.9517 0.8984 0.9106 0.9226 0.9309,,c76f0c85,42,2026-10-20 20:36
-c1_lgbm_raw_f6,cv5,"LightGBM lambdarank, reg=base, 300 rounds, features=raw+f6",0.6561,0.0203,0.6555,0.0085,0.6919 0.6500 0.6432 0.6505 0.6447,,e9efa8b9,42,2026-10-20 21:04
 c1_lgbm_raw_f3past_f6,cv5,"LightGBM lambdarank, reg=base, 300 rounds, features=raw+f3past+f6",0.6552,0.0277,0.655,0.0085,0.6971 0.6670 0.6465 0.6266 0.6389,,b155cd2e,42,2026-10-20 21:06
-c2_consensus_raw,cv5,"LightGBM lambdarank, base=raw + f7 consensus (fold-aware), 300 rounds, preset=base",0.6538,0.0205,0.6533,0.0085,0.6899 0.6503 0.6447 0.6440 0.6400,,,42,2026-10-20 21:10
-c3_blend_causal,cv5,equal-weight per-sample softmax blend of b1_lgbm_raw + c1_lgbm_raw_f6 + c2_consensus_raw,0.6731,0.0213,0.6726,0.0084,0.7108 0.6678 0.6637 0.6590 0.6641,,,42,2026-10-20 21:17
 c4_consensus_inputs_raw,cv5,"LightGBM lambdarank, base=raw + f7 consensus + input timing (fold-aware), 300 rounds, preset=base",0.6582,0.0167,0.6578,0.0085,0.6863 0.6561 0.6418 0.6549 0.6520,,,42,2026-10-20 21:21
 b1_lgbm_raw,cv5,"LightGBM lambdarank, reg=base, 300 rounds, features=raw",0.6587,0.0213,0.6584,0.0085,0.6939 0.6627 0.6509 0.6424 0.6436,,406b4b5c,42,2026-10-20 21:23
+c1_lgbm_raw_f6,cv5,"LightGBM lambdarank, reg=base, 300 rounds, features=raw+f6",0.6561,0.0203,0.6555,0.0085,0.6919 0.6500 0.6432 0.6505 0.6447,,e9efa8b9,42,2026-10-20 21:25
+c2_consensus_raw,cv5,"LightGBM lambdarank, base=raw + f7 consensus (fold-aware), 300 rounds, preset=base",0.6538,0.0205,0.6533,0.0085,0.6899 0.6503 0.6447 0.6440 0.6400,,,42,2026-10-20 21:27
+c3_blend_causal,cv5,equal-weight per-sample softmax blend of b1_lgbm_raw + c1_lgbm_raw_f6 + c2_consensus_raw,0.6731,0.0213,0.6726,0.0084,0.7108 0.6678 0.6637 0.6590 0.6641,,,42,2026-10-20 21:27
