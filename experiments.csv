@@ -75,3 +75,5 @@ b1_lgbm_raw,cv5,"LightGBM lambdarank, reg=base, 300 rounds, features=raw",0.6587
 c1_lgbm_raw_f6,cv5,"LightGBM lambdarank, reg=base, 300 rounds, features=raw+f6",0.6561,0.0203,0.6555,0.0085,0.6919 0.6500 0.6432 0.6505 0.6447,,e9efa8b9,42,2026-10-20 21:25
 c2_consensus_raw,cv5,"LightGBM lambdarank, base=raw + f7 consensus (fold-aware), 300 rounds, preset=base",0.6538,0.0205,0.6533,0.0085,0.6899 0.6503 0.6447 0.6440 0.6400,,,42,2026-10-20 21:27
 c3_blend_causal,cv5,equal-weight per-sample softmax blend of b1_lgbm_raw + c1_lgbm_raw_f6 + c2_consensus_raw,0.6731,0.0213,0.6726,0.0084,0.7108 0.6678 0.6637 0.6590 0.6641,,,42,2026-10-20 21:27
+c5_catboost_raw,cv5,"CatBoost YetiRank, 300 its, depth 6, features=raw",0.6476,0.0296,0.6477,0.0085,0.6871 0.6565 0.6513 0.6059 0.6371,,406b4b5c,42,2026-10-20 21:47
+c6_catboost_raw_f6,cv5,"CatBoost YetiRank, 300 its, depth 6, features=raw+f6",0.641,0.0204,0.6409,0.0086,0.6706 0.6500 0.6366 0.6164 0.6312,,e9efa8b9,42,2026-10-20 21:56

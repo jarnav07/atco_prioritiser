@@ -49,10 +49,12 @@ def main() -> None:
                       features=cv.features_hash(X_lab.columns))
     cv.save_artifact(args.run_id, "oof", lab, oof)
 
-    m = CatBoostRanker(**params).fit(_pool(lab, X_lab))
+    full = _pool(lab, X_lab)
+    m = CatBoostRanker(**params).fit(full)
     score = m.predict(_pool(test, X_test, labelled=False))
     cv.save_artifact(args.run_id, "test", test, score)
-    imp = pd.Series(m.get_feature_importance(), index=X_lab.columns).sort_values(ascending=False)
+    # ranking losses only support LossFunctionChange importance, which needs the training pool
+    imp = pd.Series(m.get_feature_importance(full), index=X_lab.columns).sort_values(ascending=False)
     imp.rename("importance").to_csv(ARTIFACTS / f"{args.run_id}_importance.csv")
     submission.write(test, score, args.run_id)
 

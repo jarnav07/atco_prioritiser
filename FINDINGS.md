@@ -218,6 +218,31 @@ mostly encodes - but the three models err differently, and the blend is the only
 Caveats: f7 needs recordings of other controllers on the same traffic (a live sector never repeats), and f6's run
 timing relies on the files keeping only labelled moments.
 
+**Where the causal model fails: choosing the type, not the task.** On the c3 blend's out-of-fold scores:
+
+| Diagnostic | Value |
+|---|---|
+| c3 top-3 hit | 0.673 |
+| true task *type* among the types of its top 3 | 0.756 |
+| oracle type: rank only the tasks of the true type | **0.975** |
+| oracle aircraft: rank only the tasks of the true aircraft | 0.987 |
+| implied type mass (softmax of scores) vs label share | transfer 0.07 vs 0.27; entry coordination 0.28 vs 0.08 |
+
+Angles tried on that diagnosis (all causal, 5-fold CV unless noted):
+
+| Angle | Result |
+|---|---|
+| two-stage: snapshot-level type classifier (per-type counts / urgency / flags, last input) x within-type softmax | type top-1 0.43, top-2 0.66; combined 0.50–0.53 - worse than the ranker's own type choice |
+| diversified top 3 (force a second type / aircraft into the picks) | 0.628–0.672 (plain 0.673); the top 3 already span 3 types 47 % / 3 aircraft 86 % of the time |
+| episode-level training weights (1/run length, 1/sqrt) | 0.650 / 0.652 (b1 0.659) - the metric weights snapshots, so long episodes matter |
+| other controllers' type choice at the same scenario time | top-1 type 0.33–0.36 (always "transfer" 0.27) |
+| CatBoost YetiRank, raw / raw+f6 (`models/catboost_ranker.py`) | 0.648 / 0.641; adding it to the c3 blend costs 0.6–0.7 pt |
+
+Which *type* of task a controller picks next is largely their own choice: neither the snapshot nor the other
+controllers on the same traffic predict it well (consistent with the deck's 6.5 % same-task agreement). Within the
+right type the model is already near-perfect, so causal gains have to come from information about the controller's
+current focus that these files do not carry (the real AWARE system uses gaze).
+
 ## From the briefing deck, checked against the data
 
 `AWARE_prioritisation_challenge.pdf` (34 slides; not committed - slide 33 carries the private Kaggle invite).
