@@ -1,7 +1,7 @@
 PY ?= python
 BASELINE := b1_lgbm_raw
 
-.PHONY: all submission setup check folds b0 b1 epool select
+.PHONY: all submission setup check folds b0 b1 epool select holdout tune
 
 # every baseline + the chosen submission
 all: check folds b0 b1 epool select
@@ -32,3 +32,13 @@ epool:
 select:
 	cp submissions/$(BASELINE).csv submissions/submission.csv
 	$(PY) -m harness.validate_sub submissions/submission.csv
+
+# train / stop / eval controller split: lambdarank vs the cost function (models/cost.py)
+holdout:
+	$(PY) -m harness.holdout
+	$(PY) -m models.holdout_eval
+
+# choose regularisation by lowest stop-set cost, then score the winner once on the eval controllers
+tune:
+	$(PY) -m harness.holdout
+	$(PY) -m models.holdout_eval --tune

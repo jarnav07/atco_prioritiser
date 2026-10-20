@@ -109,6 +109,13 @@ in any model here.** Use it only as a sanity check on the predicted type mix of 
 | Idea (deck hint) | Result, leave-controller-out |
 |---|---|
 | Force the assume/entry twin pair into the top 3 (assume first) when the top pick is a twin | 0.634 vs 0.658 (−2.5 pt). The model already hits 70 % of twin labels; only 224 misses have the sibling in the top 3, and the forced pair pushes out a better third candidate |
+| Within-snapshot relational features (`f2_within_sample`: snapshot / type pct ranks, age vs oldest of type and of aircraft, sibling types, twin, snapshot size) | 0.641 vs 0.659 (−1.8 pt), worse on all 5 folds |
+| … with stronger regularisation, or the `rank_xendcg` objective | 0.641 / 0.640 at 500 rounds - still below raw at every checkpoint from round 25 |
+| Cost function = listwise softmax cross-entropy (`models/cost.py`), rounds and regularisation chosen by lowest cost on the stop controllers | hold-out eval +1.2 pt (0.641 vs 0.629) but 5-fold CV −1.3 pt (0.646 vs 0.659; 95 % CI −2.2 to −0.4, better on 2 of 18 controllers). Better calibrated (eval cost 2.19 vs 2.24), not better ranked |
+
+Learning curves of the raw lambdarank baseline (5-fold CV): 0.630 / 0.638 / 0.652 / 0.656 / **0.659** / 0.652 at
+25 / 50 / 100 / 200 / 300 / 500 rounds - the fixed 300 is at the peak. Stronger regularisation (15 leaves, 400
+min rows, 0.5 colsample, L2 10) tops out at 0.649; `rank_xendcg` at 0.648.
 
 ## Noise floor
 

@@ -55,12 +55,18 @@ def features_hash(cols) -> str:
     return hashlib.md5(",".join(sorted(cols)).encode()).hexdigest()[:8]
 
 
-def log_experiment(run_id: str, desc: str, rep: dict, features: str = "", seed: int = SEED) -> None:
-    row = dict(run_id=run_id, desc=desc, cv_mean=round(rep["cv_mean"], 4), cv_std=round(rep["cv_std"], 4),
-               pooled=round(rep["pooled"], 4), se_episodes=round(rep["se_episodes"], 4), per_fold=rep["per_fold"],
+def log_experiment(run_id: str, desc: str, rep: dict, features: str = "", seed: int = SEED,
+                   split: str = "cv5") -> None:
+    """split: "cv5" = 5-fold leave-controller-out (per_fold = fold scores); "holdout" = harness/holdout.csv eval
+    controllers (cv_mean/cv_std across eval controllers, per_fold = atco:score)."""
+    row = dict(run_id=run_id, split=split, desc=desc, cv_mean=round(rep["cv_mean"], 4),
+               cv_std=round(rep["cv_std"], 4), pooled=round(rep["pooled"], 4),
+               se_episodes=round(rep["se_episodes"], 4), per_fold=rep["per_fold"],
                public_lb="", features_hash=features, seed=seed,
                utc=datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M"))
     log = pd.read_csv(EXPERIMENTS_FILE, dtype=str) if EXPERIMENTS_FILE.exists() else pd.DataFrame(columns=list(row))
+    if "split" not in log.columns:
+        log.insert(1, "split", "cv5")
     if run_id in set(log["run_id"]):
         # a rerun replaces its row but keeps a public_lb that was filled in by hand
         row["public_lb"] = log.loc[log["run_id"] == run_id, "public_lb"].fillna("").iloc[0]
