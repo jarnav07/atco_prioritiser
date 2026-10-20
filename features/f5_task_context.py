@@ -66,6 +66,13 @@ def build(df: pd.DataFrame, base: pd.DataFrame | None = None) -> pd.DataFrame:
     out["f5_n_act_in_run"] = n_run
     out["f5_n_act_to_next_run"] = n_to_nr
 
+    # snapshot context (constant within a sample): is this a run with visible closures / inputs at all?
+    # A silent run (nothing vanishes, no input) calls for prior-style ranking instead.
+    out["f5_s_n_vanish_nr"] = vanish_nr.groupby(sid).transform("sum")
+    has_act = pd.Series((n_run > 0).astype(float), index=df.index)
+    out["f5_s_n_act_in_run"] = has_act.groupby(sid).transform("sum")
+    out["f5_s_n_act_to_nr"] = pd.Series((n_to_nr > 0).astype(float), index=df.index).groupby(sid).transform("sum")
+
     # the aircraft's task set at the next run / previous run: tasks gained
     g = df["sample_id"].map(s["g"]).to_numpy().astype(np.int64)
     ac = pd.factorize(df["session"] + "|" + cs1.fillna("?"))[0].astype(np.int64)

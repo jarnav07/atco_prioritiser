@@ -13,3 +13,4 @@ b4_lgbm_f3,cv5,"LightGBM lambdarank, reg=base, 300 rounds, features=raw+f3",0.90
 b4_lgbm_f3_epool,cv5,"b4_lgbm_f3 + per-(episode, task) mean softmax prob over back-to-back snapshots",0.9064,0.0318,0.9056,0.0052,0.9597 0.8905 0.8780 0.8947 0.9090,,,42,2026-10-20 16:41
 b5_lgbm_f3f4,cv5,"LightGBM lambdarank, reg=base, 300 rounds, features=raw+f3+f4",0.9087,0.0207,0.908,0.0052,0.9428 0.8905 0.8941 0.9097 0.9064,,9e4d2eb7,42,2026-10-20 16:44
 b6_lgbm_f2f3,cv5,"LightGBM lambdarank, reg=base, 300 rounds, features=raw+f2+f3",0.9047,0.0264,0.9041,0.0053,0.9412 0.8836 0.8784 0.8987 0.9214,,e713168c,42,2026-10-20 16:49
+b7_stack_f3,cv5,"session stacking: stage-1 lambdarank on raw+f3, stage-2 lambdarank on session context of stage-1 scores (full); nested CV",0.913,0.0252,0.9124,0.0051,0.9541 0.8955 0.8934 0.9020 0.9200,,6b207aaa,42,2026-10-20 17:06
