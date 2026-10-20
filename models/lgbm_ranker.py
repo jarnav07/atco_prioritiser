@@ -32,6 +32,12 @@ PARAMS = dict(
 )
 NUM_ROUNDS = 300
 
+# lambdarank settings (named, so every run is reproducible from its CLI); chosen on the 5-fold CV
+PRESETS = {
+    "base": {},
+    "l63": dict(num_leaves=63, min_data_in_leaf=50),
+}
+
 # same trees, but trained on the listwise softmax cross-entropy (models/cost.py) instead of lambdarank
 SOFTMAX_PARAMS = {**{k: v for k, v in PARAMS.items() if k not in ("metric", "eval_at")},
                   "objective": cost.objective, "metric": "None"}
@@ -60,22 +66,29 @@ def _groups(df: pd.DataFrame) -> np.ndarray:
 
 
 def fit(df: pd.DataFrame, X: pd.DataFrame, objective: str = "lambdarank", rounds: int = NUM_ROUNDS,
-        reg: str = "base") -> lgb.Booster:
+        reg: str = "base", preset: str = "base") -> lgb.Booster:
     ds = lgb.Dataset(X, label=df[LABEL].to_numpy(), group=_groups(df), categorical_feature=CATEGORICAL)
-    params = PARAMS if objective == "lambdarank" else {**SOFTMAX_PARAMS, **GRID[reg]}
+    if objective == "lambdarank":
+        params = {**PARAMS, **PRESETS[preset]}
+    elif objective == "binary":   # pointwise logloss on the same trees: a blend member that errs differently
+        params = {**PARAMS, **PRESETS[preset], "objective": "binary", "metric": "binary_logloss"}
+        params.pop("eval_at")
+    else:
+        params = {**SOFTMAX_PARAMS, **GRID[reg]}
     return lgb.train(params, ds, num_boost_round=rounds)
 
 
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--features", default="raw", choices=sorted(FEATURE_SETS))
-    ap.add_argument("--objective", default="lambdarank", choices=["lambdarank", "softmax"])
+    ap.add_argument("--objective", default="lambdarank", choices=["lambdarank", "softmax", "binary"])
     ap.add_argument("--rounds", type=int, default=NUM_ROUNDS)
     ap.add_argument("--reg", default="base", choices=sorted(GRID), help="regularisation setting (softmax only)")
+    ap.add_argument("--preset", default="base", choices=sorted(PRESETS), help="lambdarank setting")
     ap.add_argument("--run-id", default=None)
     args = ap.parse_args()
     run_id = args.run_id or f"b1_lgbm_{args.features}"
-    fit_args = dict(objective=args.objective, rounds=args.rounds, reg=args.reg)
+    fit_args = dict(objective=args.objective, rounds=args.rounds, reg=args.reg, preset=args.preset)
 
     from harness.data import load_labelled, load_test
 
@@ -90,6 +103,8 @@ def main() -> None:
     oof = cv.run_cv(lab, folds, fit_predict)
     rep = cv.report(lab, oof, folds)
     desc = f"LightGBM {args.objective}, reg={args.reg}, {args.rounds} rounds, features={args.features}"
+    if args.preset != "base":
+        desc += f", preset={args.preset}"
     cv.log_experiment(run_id, desc, rep,
                       features=cv.features_hash(X_lab.columns))
     cv.save_artifact(run_id, "oof", lab, oof)

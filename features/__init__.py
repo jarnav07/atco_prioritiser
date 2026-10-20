@@ -9,6 +9,9 @@ FEATURE_SETS = {
     "raw+f3+f4": [f0_raw.build, f3_temporal.build, f4_state_changes.build],
     "raw+f2+f3": [f0_raw.build, f2_within_sample.build, f3_temporal.build],
     "raw+f3+f5": [f0_raw.build, f3_temporal.build, f5_task_context.build],
+    "raw+f3+f4+f5": [f0_raw.build, f3_temporal.build, f4_state_changes.build, f5_task_context.build],
+    # no look-ahead: only the current and earlier snapshots (for the deployment question)
+    "raw+f3past": [f0_raw.build, f3_temporal.build_past],
 }
 
 CATEGORICAL = ["task_index"]

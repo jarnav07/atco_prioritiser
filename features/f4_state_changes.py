@@ -112,6 +112,14 @@ def build(df: pd.DataFrame) -> pd.DataFrame:
         t_nr = np.where(np.isnan(next_g0_of_row), np.inf, t_of_g[np.nan_to_num(next_g0_of_row, nan=0).astype(int)])
         out[f"f4_chg_{grp}_before_nr"] = np.where(np.isnan(tt_next), np.nan, (t + tt_next <= t_nr).astype(float))
 
+    # per column: time to the next change at any later appearance (not only before the next run). Silent
+    # coordination work shows up late: e.g. monitoring_rule_activated changes later for 46 % of silent
+    # entry-coordination targets vs 9 % of the other entry-coordination tasks of their snapshot.
+    for c in COLS:
+        tchg = st["t"].where(ch_app[c].to_numpy() > 0)
+        nxt_t = tchg.groupby(st["ac"]).shift(-1).groupby(st["ac"]).bfill()
+        out[f"f4_tt_{c}"] = pd.Series(nxt_t.to_numpy(), index=lookup).reindex(key_rows).to_numpy() - t
+
     res = pd.DataFrame(out, index=df.index)
     sid = df["sample_id"]
     for c in ["f4_tt_chg_clr", "f4_tt_chg_coord", "f4_tt_chg_cond"]:

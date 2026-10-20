@@ -28,7 +28,7 @@ import pandas as pd
 from features import FEATURE_SETS
 from features.f3_temporal import sample_table
 from harness import cv, folds as folds_mod, submission
-from harness.config import ARTIFACTS
+from harness.config import ARTIFACTS, LABEL
 from models import lgbm_ranker as lr
 from models.postprocess import softmax_within_sample
 
@@ -87,13 +87,33 @@ def context_features(df: pd.DataFrame, score: np.ndarray) -> pd.DataFrame:
     return out
 
 
+def expert_features(df: pd.DataFrame, score: np.ndarray, prefix: str) -> pd.DataFrame:
+    """Score, within-sample probability / rank and run-mean probability of an extra stage-1 model."""
+    p = softmax_within_sample(df, score)
+    run = df["sample_id"].map(sample_table(df).set_index("sample_id")["run"]).to_numpy()
+    out = pd.DataFrame(index=df.index)
+    out[f"{prefix}score"] = score
+    out[f"{prefix}p"] = p
+    out[f"{prefix}rank"] = pd.Series(score, index=df.index).groupby(df["sample_id"]).rank(
+        ascending=False, method="min").to_numpy()
+    out[f"{prefix}pm"] = pd.Series(p, index=df.index).groupby([run, df["task_name"].to_numpy()]).transform("mean")
+    return out
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--features", default="raw+f3", choices=sorted(FEATURE_SETS))
     ap.add_argument("--s2", default="full", choices=["full", "small"],
                     help="stage-2 inputs: context + stage-1 features (full) or context + task_index (small)")
+    ap.add_argument("--rounds1", type=int, default=lr.NUM_ROUNDS, help="stage-1 boosting rounds")
+    ap.add_argument("--preset1", default="base", choices=sorted(lr.PRESETS), help="stage-1 lambdarank setting")
+    ap.add_argument("--rounds2", type=int, default=lr.NUM_ROUNDS, help="stage-2 boosting rounds")
+    ap.add_argument("--preset2", default="base", choices=sorted(lr.PRESETS), help="stage-2 lambdarank setting")
+    ap.add_argument("--expert", action="store_true", help="add the silent-target expert (needs f3 + f5)")
     ap.add_argument("--run-id", default=None)
     args = ap.parse_args()
+    s1_args = dict(rounds=args.rounds1, preset=args.preset1)
+    s2_args = dict(rounds=args.rounds2, preset=args.preset2)
     run_id = args.run_id or f"b7_stack_{args.features}_{args.s2}"
 
     from harness.data import load_labelled, load_test
@@ -104,39 +124,64 @@ def main() -> None:
     fold_of = lab["sample_id"].map(folds.set_index("sample_id")["fold"])
     print(f"[{run_id}] stage 1: {X_lab.shape[1]} features; stage 2: {args.s2}")
 
-    def stage1_oof(rows: pd.Index) -> np.ndarray:
-        """Leave-one-fold-out stage-1 scores over the folds present in `rows`."""
-        oof = pd.Series(np.nan, index=rows)
-        f = fold_of.loc[rows]
-        for k in sorted(f.unique()):
-            tr, va = rows[f.to_numpy() != k], rows[f.to_numpy() == k]
-            oof.loc[va] = lr.fit(lab.loc[tr], X_lab.loc[tr]).predict(X_lab.loc[va])
-        return oof.to_numpy()
+    # optional "silent expert": a second stage-1 ranker trained only on samples whose target is silent (its task
+    # is still listed at the next run and its aircraft gets no input before then) - the hard 15 % of samples
+    # where the main ranker is at 0.55. Applied to every row; its scores are extra stage-2 inputs.
+    if args.expert:
+        need = {"f3_in_next_run", "f5_n_act_to_next_run"}
+        assert need <= set(X_lab.columns), f"--expert needs {need} (use a feature set with f3 and f5)"
+        tgt = lab[LABEL].to_numpy() == 1
+        silent_tgt = tgt & (X_lab["f3_in_next_run"].to_numpy() == 1) & (X_lab["f5_n_act_to_next_run"].to_numpy() == 0)
+        silent_sample = lab["sample_id"].isin(set(lab.loc[silent_tgt, "sample_id"])).to_numpy()
 
-    def s2_inputs(df: pd.DataFrame, X: pd.DataFrame, s1: np.ndarray) -> pd.DataFrame:
-        C = context_features(df, s1)
-        return pd.concat([X, C], axis=1) if args.s2 == "full" else pd.concat([X[["task_index"]], C], axis=1)
+    def stage1_fit(rows: pd.Index) -> dict:
+        models = {"main": lr.fit(lab.loc[rows], X_lab.loc[rows], **s1_args)}
+        if args.expert:
+            r = rows[silent_sample[lab.index.get_indexer(rows)]]
+            models["silent"] = lr.fit(lab.loc[r], X_lab.loc[r], **s1_args)
+        return models
+
+    def stage1_predict(models: dict, X: pd.DataFrame) -> dict:
+        return {k: m.predict(X) for k, m in models.items()}
+
+    def stage1_oof(rows: pd.Index) -> dict:
+        """Leave-one-fold-out stage-1 scores over the folds present in `rows`."""
+        oof = {}
+        f = fold_of.loc[rows].to_numpy()
+        for k in sorted(np.unique(f)):
+            tr, va = rows[f != k], rows[f == k]
+            for name, sc in stage1_predict(stage1_fit(tr), X_lab.loc[va]).items():
+                oof.setdefault(name, pd.Series(np.nan, index=rows)).loc[va] = sc
+        return {k: v.to_numpy() for k, v in oof.items()}
+
+    def s2_inputs(df: pd.DataFrame, X: pd.DataFrame, s1: dict) -> pd.DataFrame:
+        parts = [X if args.s2 == "full" else X[["task_index"]], context_features(df, s1["main"])]
+        if "silent" in s1:
+            parts.append(expert_features(df, s1["silent"], "s2e_"))
+        return pd.concat(parts, axis=1)
 
     def fit_predict(train: pd.DataFrame, valid: pd.DataFrame) -> np.ndarray:
         s1_tr = stage1_oof(train.index)
-        s1_va = lr.fit(train, X_lab.loc[train.index]).predict(X_lab.loc[valid.index])
+        s1_va = stage1_predict(stage1_fit(train.index), X_lab.loc[valid.index])
         F_tr = s2_inputs(train, X_lab.loc[train.index], s1_tr)
         F_va = s2_inputs(valid, X_lab.loc[valid.index], s1_va)
         cv.check_features(F_tr.columns)
-        return lr.fit(train, F_tr).predict(F_va)
+        return lr.fit(train, F_tr, **s2_args).predict(F_va)
 
     oof = cv.run_cv(lab, folds, fit_predict)
     rep = cv.report(lab, oof, folds)
     cv.log_experiment(run_id, f"session stacking: stage-1 lambdarank on {args.features}, stage-2 lambdarank on "
-                              f"session context of stage-1 scores ({args.s2}); nested CV", rep,
+                              f"session context of stage-1 scores ({args.s2}); nested CV; stage 1 {s1_args}, stage 2 {s2_args}"
+                              f"{'; + silent-target expert' if args.expert else ''}",
+                      rep,
                       features=cv.features_hash(list(X_lab.columns) + ["s2"]))
     cv.save_artifact(run_id, "oof", lab, oof)
 
     # test: stage 2 trained on the 5-fold OOF stage-1 scores, applied to a stage-1 fit on all labelled rows
     s1_lab = stage1_oof(lab.index)
-    s1_test = lr.fit(lab, X_lab).predict(X_test)
+    s1_test = stage1_predict(stage1_fit(lab.index), X_test)
     F_lab, F_test = s2_inputs(lab, X_lab, s1_lab), s2_inputs(test, X_test, s1_test)
-    booster = lr.fit(lab, F_lab)
+    booster = lr.fit(lab, F_lab, **s2_args)
     score = booster.predict(F_test)
     cv.save_artifact(run_id, "test", test, score)
     imp = pd.Series(booster.feature_importance("gain"), index=F_lab.columns).sort_values(ascending=False)

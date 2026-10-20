@@ -206,3 +206,15 @@ def build(df: pd.DataFrame) -> pd.DataFrame:
         res[f"{c}_rk"] = res[c].groupby(sid).rank(method="min")
         res[f"{c}_trk"] = res[c].groupby([sid, df["task_index"]]).rank(method="min")
     return res
+
+
+# Columns that only look at the current and earlier snapshots of the session (no look-ahead). They still use the
+# dataset's run / gap structure, which a live AWARE feed (a snapshot every 3 s) would not have.
+PAST_COLS = ["f3_run_pos", "f3_run_t_from_start", "f3_gap_prev", "f3_ses_t", "f3_in_prev", "f3_in_prev_run",
+             "f3_in_run_start", "f3_streak_t_from_start", "f3_task_t_since_first", "f3_t_since_act",
+             "f3_prev_act_code", "f3_t_since_act2"]
+
+
+def build_past(df: pd.DataFrame) -> pd.DataFrame:
+    """The backward-looking subset of build(): what a live system could compute (bar the run structure)."""
+    return build(df)[PAST_COLS]

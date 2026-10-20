@@ -14,3 +14,35 @@ b4_lgbm_f3_epool,cv5,"b4_lgbm_f3 + per-(episode, task) mean softmax prob over ba
 b5_lgbm_f3f4,cv5,"LightGBM lambdarank, reg=base, 300 rounds, features=raw+f3+f4",0.9087,0.0207,0.908,0.0052,0.9428 0.8905 0.8941 0.9097 0.9064,,9e4d2eb7,42,2026-10-20 16:44
 b6_lgbm_f2f3,cv5,"LightGBM lambdarank, reg=base, 300 rounds, features=raw+f2+f3",0.9047,0.0264,0.9041,0.0053,0.9412 0.8836 0.8784 0.8987 0.9214,,e713168c,42,2026-10-20 16:49
 b7_stack_f3,cv5,"session stacking: stage-1 lambdarank on raw+f3, stage-2 lambdarank on session context of stage-1 scores (full); nested CV",0.913,0.0252,0.9124,0.0051,0.9541 0.8955 0.8934 0.9020 0.9200,,6b207aaa,42,2026-10-20 17:06
+scan_raw+f3+f5_base_r300,cv5,"scan (scratch curve.py, per-fold not kept): LightGBM lambdarank base, 300 rounds, features=raw+f3+f5",0.9141,0.029,,,,,,42,2026-10-20 17:59
+scan_raw+f3+f5_base_r600,cv5,"scan (scratch curve.py, per-fold not kept): LightGBM lambdarank base, 600 rounds, features=raw+f3+f5",0.9169,0.027,,,,,,42,2026-10-20 17:59
+scan_raw+f3+f5_base_r900,cv5,"scan (scratch curve.py, per-fold not kept): LightGBM lambdarank base, 900 rounds, features=raw+f3+f5",0.9178,0.027,,,,,,42,2026-10-20 17:59
+scan_raw+f3+f5_base_r1200,cv5,"scan (scratch curve.py, per-fold not kept): LightGBM lambdarank base, 1200 rounds, features=raw+f3+f5",0.9173,0.027,,,,,,42,2026-10-20 17:59
+scan_raw+f3+f5_l63_r300,cv5,"scan (scratch curve.py, per-fold not kept): LightGBM num_leaves 63, min_data_in_leaf 50, 300 rounds, features=raw+f3+f5",0.9171,0.022,,,,,,42,2026-10-20 17:59
+scan_raw+f3+f5_l63_r600,cv5,"scan (scratch curve.py, per-fold not kept): LightGBM num_leaves 63, min_data_in_leaf 50, 600 rounds, features=raw+f3+f5",0.9163,0.022,,,,,,42,2026-10-20 17:59
+scan_raw+f3+f5_l63_r900,cv5,"scan (scratch curve.py, per-fold not kept): LightGBM num_leaves 63, min_data_in_leaf 50, 900 rounds, features=raw+f3+f5",0.9152,0.022,,,,,,42,2026-10-20 17:59
+scan_raw+f3+f5_l63_r1200,cv5,"scan (scratch curve.py, per-fold not kept): LightGBM num_leaves 63, min_data_in_leaf 50, 1200 rounds, features=raw+f3+f5",0.9144,0.022,,,,,,42,2026-10-20 17:59
+scan_raw+f3+f5_l15_r300,cv5,"scan (scratch curve.py, per-fold not kept): LightGBM num_leaves 15, min_data_in_leaf 200, 300 rounds, features=raw+f3+f5",0.9100,0.030,,,,,,42,2026-10-20 17:59
+scan_raw+f3+f5_l15_r600,cv5,"scan (scratch curve.py, per-fold not kept): LightGBM num_leaves 15, min_data_in_leaf 200, 600 rounds, features=raw+f3+f5",0.9115,0.028,,,,,,42,2026-10-20 17:59
+scan_raw+f3+f5_l15_r900,cv5,"scan (scratch curve.py, per-fold not kept): LightGBM num_leaves 15, min_data_in_leaf 200, 900 rounds, features=raw+f3+f5",0.9118,0.025,,,,,,42,2026-10-20 17:59
+scan_raw+f3+f5_l15_r1200,cv5,"scan (scratch curve.py, per-fold not kept): LightGBM num_leaves 15, min_data_in_leaf 200, 1200 rounds, features=raw+f3+f5",0.9126,0.025,,,,,,42,2026-10-20 17:59
+scan_raw+f3+f5_ff5_r300,cv5,"scan (scratch curve.py, per-fold not kept): LightGBM feature_fraction 0.5, 300 rounds, features=raw+f3+f5",0.9098,0.023,,,,,,42,2026-10-20 17:59
+scan_raw+f3+f5_ff5_r600,cv5,"scan (scratch curve.py, per-fold not kept): LightGBM feature_fraction 0.5, 600 rounds, features=raw+f3+f5",0.9118,0.023,,,,,,42,2026-10-20 17:59
+scan_raw+f3+f5_ff5_r900,cv5,"scan (scratch curve.py, per-fold not kept): LightGBM feature_fraction 0.5, 900 rounds, features=raw+f3+f5",0.9136,0.024,,,,,,42,2026-10-20 17:59
+scan_raw+f3+f5_ff5_r1200,cv5,"scan (scratch curve.py, per-fold not kept): LightGBM feature_fraction 0.5, 1200 rounds, features=raw+f3+f5",0.9139,0.024,,,,,,42,2026-10-20 17:59
+scan_raw+f3+f5_trunc10_r300,cv5,"scan (scratch curve.py, per-fold not kept): LightGBM lambdarank_truncation_level 10, 300 rounds, features=raw+f3+f5",0.9114,0.027,,,,,,42,2026-10-20 17:59
+scan_raw+f3+f5_trunc10_r600,cv5,"scan (scratch curve.py, per-fold not kept): LightGBM lambdarank_truncation_level 10, 600 rounds, features=raw+f3+f5",0.9142,0.024,,,,,,42,2026-10-20 17:59
+scan_raw+f3+f5_trunc10_r900,cv5,"scan (scratch curve.py, per-fold not kept): LightGBM lambdarank_truncation_level 10, 900 rounds, features=raw+f3+f5",0.9145,0.024,,,,,,42,2026-10-20 17:59
+scan_raw+f3+f5_trunc10_r1200,cv5,"scan (scratch curve.py, per-fold not kept): LightGBM lambdarank_truncation_level 10, 1200 rounds, features=raw+f3+f5",0.9149,0.024,,,,,,42,2026-10-20 17:59
+scan_raw+f3+f5_xendcg_r300,cv5,"scan (scratch curve.py, per-fold not kept): LightGBM objective rank_xendcg, 300 rounds, features=raw+f3+f5",0.9077,0.026,,,,,,42,2026-10-20 17:59
+scan_raw+f3+f5_xendcg_r600,cv5,"scan (scratch curve.py, per-fold not kept): LightGBM objective rank_xendcg, 600 rounds, features=raw+f3+f5",0.9102,0.023,,,,,,42,2026-10-20 17:59
+scan_raw+f3+f5_xendcg_r900,cv5,"scan (scratch curve.py, per-fold not kept): LightGBM objective rank_xendcg, 900 rounds, features=raw+f3+f5",0.9101,0.025,,,,,,42,2026-10-20 17:59
+scan_raw+f3+f5_xendcg_r1200,cv5,"scan (scratch curve.py, per-fold not kept): LightGBM objective rank_xendcg, 1200 rounds, features=raw+f3+f5",0.9106,0.022,,,,,,42,2026-10-20 17:59
+scan_raw+f3+f5_binary_r300,cv5,"scan (scratch curve.py, per-fold not kept): LightGBM objective binary, 300 rounds, features=raw+f3+f5",0.9141,0.026,,,,,,42,2026-10-20 17:59
+scan_raw+f3+f5_binary_r600,cv5,"scan (scratch curve.py, per-fold not kept): LightGBM objective binary, 600 rounds, features=raw+f3+f5",0.9142,0.027,,,,,,42,2026-10-20 17:59
+scan_raw+f3+f5_binary_r900,cv5,"scan (scratch curve.py, per-fold not kept): LightGBM objective binary, 900 rounds, features=raw+f3+f5",0.9134,0.027,,,,,,42,2026-10-20 17:59
+scan_raw+f3+f5_binary_r1200,cv5,"scan (scratch curve.py, per-fold not kept): LightGBM objective binary, 1200 rounds, features=raw+f3+f5",0.9120,0.028,,,,,,42,2026-10-20 17:59
+scan_raw+f3+f5+f4_base_r300,cv5,"scan (scratch curve.py, per-fold not kept): LightGBM lambdarank base, 300 rounds, features=raw+f3+f5+f4(per-column timings)",0.9174,0.019,,,,,,42,2026-10-20 17:59
+scan_raw+f3+f5+f4_base_r600,cv5,"scan (scratch curve.py, per-fold not kept): LightGBM lambdarank base, 600 rounds, features=raw+f3+f5+f4(per-column timings)",0.9196,0.022,,,,,,42,2026-10-20 17:59
+scan_raw+f3+f5+f4_base_r900,cv5,"scan (scratch curve.py, per-fold not kept): LightGBM lambdarank base, 900 rounds, features=raw+f3+f5+f4(per-column timings)",0.9198,0.022,,,,,,42,2026-10-20 17:59
+b8_lgbm_f345,cv5,"LightGBM lambdarank, reg=base, 600 rounds, features=raw+f3+f4+f5",0.9229,0.0203,0.9223,0.0048,0.9517 0.8984 0.9106 0.9226 0.9309,,c76f0c85,42,2026-10-20 18:12
