@@ -37,11 +37,19 @@ the look-ahead caveat (they read later snapshots of the session; a past-only var
 | `b11_lgbm_f3past` | b1 + the past-only part of f3 (no look-ahead) | 0.653 ± 0.024 | 0.641 | .689 .663 .641 .627 .644 |
 | `b12_lgbm_f345_bag3` | b8, seed bag of 3 | 0.922 ± 0.024 | 0.911 | .957 .893 .910 .921 .931 |
 
+> **The whole gain over b1 is look-ahead.** f3 / f4 / f5 read *later* snapshots of the same session (does the
+> task disappear, when does the controller's next input on the aircraft land, how does its state change). That
+> is legal for this competition - the whole test file is given and no label is read - but a live AWARE system
+> would not have it: the past-only part of f3 (`b11_lgbm_f3past`) scores 0.653, no better than b1. b8 is a
+> retrospective labeller ("which task was the controller on, given what happened next"), not a real-time advisor.
+
 Pooled episode-level SE is ≈ 0.85 pt at b1's level and ≈ 0.5 pt at b8's, and a single run moves by ~0.3 pt
 with column order / seed, so only b4 (+25 pt) and b8 (+1.4 pt over b4) are real steps. **`b8_lgbm_f345` is the
 selected submission** (`make submission`); b10 and b12 tie it and are more complex. All runs - including the
-`scan_*` learning-curve / parameter rows - are logged in [`experiments.csv`](experiments.csv) (`split` = `cv5`
-or `holdout`); fill in `public_lb` by hand after each Kaggle upload.
+52 `scan_*` learning-curve / parameter rows (34 without per-fold scores; their best value, 0.924, is selected
+from 52 looks at the same folds and was not adopted - see FINDINGS.md) - are logged in
+[`experiments.csv`](experiments.csv) (`split` = `cv5` or `holdout`); fill in `public_lb` by hand after each
+Kaggle upload.
 
 ## Results - hold-out (eval controllers 5, 17, 18)
 
@@ -56,8 +64,9 @@ or `holdout`); fill in `public_lb` by hand after each Kaggle upload.
 Eval SE ≈ 1.75 pt. The cost function gives **better-calibrated** probabilities (lower eval cost) and, once
 regularised, +1.2 pt on these three controllers - but the same model on the 5-fold CV (`b3_softmax_raw`) is
 **−1.3 pt vs b1** (paired episode bootstrap 95 % CI −2.2 to −0.4; better on only 2 of 18 controllers, and worse
-on 5, 17 and 18 too). A single 3-controller hold-out is too small to select on; the 5-fold CV decides, and b1
-stays. The cost function is kept for calibrated per-sample probabilities (blending, Tier 5).
+on 5, 17 and 18 too). A single 3-controller hold-out is too small to select on; the 5-fold CV decides, and
+lambdarank stays the objective (b1, then b4 / b8). The cost function is kept for calibrated per-sample
+probabilities (blending, Tier 5).
 
 ## Reproduce
 

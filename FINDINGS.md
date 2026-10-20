@@ -80,6 +80,11 @@ there.
 
 ## Session-temporal context: the missing signal family (0.659 → 0.923)
 
+**Read this first: the whole gain is look-ahead.** The features below read *later* snapshots of the session.
+Restricted to the current and earlier snapshots they score 0.653 (`b11_lgbm_f3past`), no better than b1 (0.659).
+Legal for the competition (no label is read; the test file is given whole), unavailable to a live system - see
+"Look-ahead" below.
+
 The 0.66 → 0.93 gap to the leaderboard was a missing family, not tuning: **what happens to each task and each
 aircraft in the later snapshots of the same session.** A worked task is usually *finished* - an assumed
 aircraft's assume task closes, a transferred aircraft leaves - and working it usually means an HMI input on its
@@ -229,4 +234,9 @@ features in a different column order (which changes LightGBM's `feature_fraction
 0.9229 (b8). Differences under ~0.5 pt between single runs at this level are not evidence.
 
 Scan rows (`scan_*` in `experiments.csv`) are learning curves from a scratch script on cached features (same frozen
-folds, same metric); the earliest ones kept only mean ± fold std. Decisions rest on the CLI runs (`b*`).
+folds, same metric); 34 of the 52 kept only mean ± fold std (no per-fold scores). **Selection bias:** 52 scan
+configurations were read off the same 5 folds, so the best scan value (0.924, 63 leaves at 900 rounds) is
+optimistically selected by roughly the run-to-run noise (~0.3–0.5 pt); none of them was adopted. The selected
+model's settings (base lambdarank, 600 rounds) were fixed from the raw + f3 + f5 learning curve and confirmed by the
+CLI run b8; b8's 0.923 carries a little of that selection too (rounds picked on the same folds), on the order of
+0.1–0.2 pt.
