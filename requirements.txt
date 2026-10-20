@@ -1,0 +1,9 @@
+# Python 3.13. Pinned so `make submission` reproduces bit-identical files (rule 2.8.a).
+numpy==2.5.3
+pandas==3.0.5
+pyarrow==26.0.0
+scikit-learn==1.9.1
+scipy==1.18.1
+joblib==1.6.0
+threadpoolctl==3.7.0
+lightgbm==4.7.0
