@@ -2,3 +2,4 @@ run_id,desc,cv_mean,cv_std,pooled,se_episodes,per_fold,public_lb,features_hash,s
 b0_type_prior,type prior (rows rate) + nearest |time_to_sector| = sample_submission logic,0.3901,0.0329,0.3889,0.0087,0.4438 0.3714 0.3619 0.3985 0.3750,,,42,2026-10-20 15:45
 b1_lgbm_raw,"LightGBM lambdarank, 300 rounds, features=raw",0.6587,0.0213,0.6584,0.0085,0.6939 0.6627 0.6509 0.6424 0.6436,,406b4b5c,42,2026-10-20 15:46
 b1_lgbm_raw_epool,"b1_lgbm_raw + per-(episode, task) mean softmax prob over back-to-back snapshots",0.6658,0.0262,0.6654,0.0084,0.7104 0.6649 0.6586 0.6436 0.6517,,,42,2026-10-20 15:46
+b2_lgbm_f2,"LightGBM lambdarank, 300 rounds, features=raw+f2",0.6413,0.0287,0.6411,0.0086,0.6802 0.6580 0.6403 0.6168 0.6111,,a8eeaf61,42,2026-10-20 16:01

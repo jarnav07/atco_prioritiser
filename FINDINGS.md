@@ -78,6 +78,38 @@ snapshots where the task is listed) gives +0.7 pt - inside the noise floor. Trea
 *costs* 1.4 pt. Deployment caveat: live AWARE emits every 3 s regardless, so this gap signal does not exist
 there.
 
+## From the briefing deck, checked against the data
+
+`AWARE_prioritisation_challenge.pdf` (34 slides; not committed - slide 33 carries the private Kaggle invite).
+
+| Deck claim | Check |
+|---|---|
+| 15,038 samples, 541,097 rows (slide 26) | 13,175 + 1,863 samples; 474,688 + 66,409 rows ✓ |
+| A sample is a snapshot "every 3 s **while the controller works on a task**" (slide 26) | ✓ - the gap structure above is by design |
+| ≈ 4,150 label episodes (slide 20) | 3,655 in the labelled set (new episode = gap > 4.5 s or label change) ⇒ ≈ 495 in test, in 401 runs |
+| Assume chosen in ~3 of 4 twin cases (slide 24) | 73.2 % ✓ |
+| BIX72G transferred before the nearer EWG5C (slide 25) | the answer is the **oldest open task of its type** 63.3 % of the time vs **nearest boundary** 57.6 % |
+| Controllers return to tasks (slide 16) | only 1.9 % of labelled episodes revisit a task already worked in the session |
+| Same task at the same moment across controllers 6.5 %; pairs < 30 s apart ordered at chance (slides 22–23) | not checkable from the files; sets the ceiling |
+| Up to 2 final submissions; deadline Wed 13:00 CEST; daily limit resets 02:00 (slide 30) | - |
+
+**Slide 20 reveals the test label mix.** Its per-type counts cover all 15,038 samples, so subtracting the
+labelled counts gives the test counts exactly (they sum to 1,863):
+
+| transfer | assume | zone | RTR | exit coord | entry coord | exit cond | conflict | exit conflict | QoS | entry conflict | non-conf |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| 516 | 410 | 373 | 142 | 112 | 99 | 82 | 65 | 29 | 25 | 7 | 3 |
+
+Versus train, test has more zone conflicts (20.0 % vs 16.1 %) and fewer assume (22.0 % vs 25.5 %) and entry
+coordination (5.3 % vs 8.1 %). Every team has the deck, but **this is test-label information: it is not used
+in any model here.** Use it only as a sanity check on the predicted type mix of a submission.
+
+## What did not work
+
+| Idea (deck hint) | Result, leave-controller-out |
+|---|---|
+| Force the assume/entry twin pair into the top 3 (assume first) when the top pick is a twin | 0.634 vs 0.658 (−2.5 pt). The model already hits 70 % of twin labels; only 224 misses have the sibling in the top 3, and the forced pair pushes out a better third candidate |
+
 ## Noise floor
 
 5 folds of 2,469–2,757 samples carry 575–723 runs each ⇒ per-fold SE ≈ 1.8–2.1 pt; pooled SE ≈ 0.85 pt.
