@@ -5,3 +5,4 @@ artifacts/
 submissions/
 __pycache__/
 *.pyc
+catboost_info/

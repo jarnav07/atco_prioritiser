@@ -15,7 +15,7 @@ from harness.data import load_labelled, load_test
 from models.lgbm_ranker import build_features
 
 PARAMS = dict(loss_function="YetiRank", iterations=300, learning_rate=0.08, depth=6, random_seed=SEED,
-              thread_count=4, verbose=False)
+              thread_count=4, verbose=False, allow_writing_files=False)
 
 
 def _pool(df: pd.DataFrame, X: pd.DataFrame, labelled: bool = True) -> Pool:
