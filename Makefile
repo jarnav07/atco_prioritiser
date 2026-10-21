@@ -58,11 +58,13 @@ temporal:
 lookahead:
 	$(PY) -m models.lgbm_ranker --features raw+f3+f4+f5 --rounds 600 --run-id $(LOOKAHEAD)
 
-# best CV overall: equal-weight blend of b8 + d2 (b8 + f8 task-set changes) + b12 (b8 seed bag of 3), CV 0.9247
+# e1: b8 + d2 (b8 + f8 task-set changes) + b12 (b8 seed bag of 3), CV 0.9247 (public 0.947)
+# e2: e1 + b7 (session stacking on b4; `python -m models.stack_session` builds it), CV 0.9281
 blend-final: lookahead
 	$(PY) -m models.lgbm_ranker --features raw+f3+f4+f5+f8 --rounds 600 --run-id d2_lgbm_f3458
 	$(PY) -m models.lgbm_ranker --features raw+f3+f4+f5 --rounds 600 --seeds 3 --run-id b12_lgbm_f345_bag3
 	$(PY) -m models.blend --runs b8_lgbm_f345 d2_lgbm_f3458 b12_lgbm_f345_bag3 --run-id e1_blend_b8_d2_b12
+	$(PY) -m models.blend --runs b8_lgbm_f345 d2_lgbm_f3458 b12_lgbm_f345_bag3 b7_stack_f3 --run-id e2_blend_e1_b7
 
 select:
 	cp submissions/$(BASELINE).csv submissions/submission.csv
