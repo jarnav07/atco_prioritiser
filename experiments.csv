@@ -81,3 +81,5 @@ d2_lgbm_f3458,cv5,"LightGBM lambdarank, reg=base, 600 rounds, features=raw+f3+f4
 e1_blend_b8_d2_b12,cv5,equal-weight per-sample softmax blend of b8_lgbm_f345 + d2_lgbm_f3458 + b12_lgbm_f345_bag3,0.9247,0.0223,0.9242,0.0047,0.9561 0.8974 0.9132 0.9214 0.9357,,,42,2026-10-21 10:21
 e2_blend_e1_b7,cv5,equal-weight per-sample softmax blend of b8_lgbm_f345 + d2_lgbm_f3458 + b12_lgbm_f345_bag3 + b7_stack_f3,0.9281,0.021,0.9277,0.0046,0.9605 0.9097 0.9176 0.9149 0.9379,,,42,2026-10-21 10:25
 e3_blend_d2_b12_b7,cv5,equal-weight per-sample softmax blend of d2_lgbm_f3458 + b12_lgbm_f345_bag3 + b7_stack_f3,0.9295,0.0237,0.9291,0.0046,0.9666 0.9100 0.9165 0.9149 0.9397,,,42,2026-10-21 10:28
+e4_lgbm_f3458_l63,cv5,"LightGBM lambdarank, reg=base, 600 rounds, features=raw+f3+f4+f5+f8, preset=l63",0.9211,0.0187,0.9205,0.0048,0.9501 0.9010 0.9088 0.9226 0.9232,,a2f0311b,42,2026-10-21 10:37
+e5_blend_e3_e4,cv5,equal-weight per-sample softmax blend of d2_lgbm_f3458 + b12_lgbm_f345_bag3 + b7_stack_f3 + e4_lgbm_f3458_l63,0.9277,0.0211,0.9273,0.0046,0.9613 0.9104 0.9154 0.9162 0.9353,,,42,2026-10-21 10:39
