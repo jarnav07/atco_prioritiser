@@ -5,7 +5,7 @@ LOOKAHEAD := b8_lgbm_f345
 # causal alternative (current + earlier snapshots only), CV 0.673
 CAUSAL := c3_blend_causal
 
-.PHONY: all submission causal-submission setup check folds b0 b1 epool causal causal-check temporal lookahead select holdout tune
+.PHONY: all submission causal-submission blend-final setup check folds b0 b1 epool causal causal-check temporal lookahead select holdout tune
 
 # every baseline, the causal blend, the look-ahead models, and the chosen submission
 all: check folds b0 b1 epool causal temporal lookahead select
@@ -57,6 +57,12 @@ temporal:
 # look-ahead: raw + temporal (f3) + aircraft state changes (f4) + task context (f5), 600 rounds (~6 min)
 lookahead:
 	$(PY) -m models.lgbm_ranker --features raw+f3+f4+f5 --rounds 600 --run-id $(LOOKAHEAD)
+
+# best CV overall: equal-weight blend of b8 + d2 (b8 + f8 task-set changes) + b12 (b8 seed bag of 3), CV 0.9247
+blend-final: lookahead
+	$(PY) -m models.lgbm_ranker --features raw+f3+f4+f5+f8 --rounds 600 --run-id d2_lgbm_f3458
+	$(PY) -m models.lgbm_ranker --features raw+f3+f4+f5 --rounds 600 --seeds 3 --run-id b12_lgbm_f345_bag3
+	$(PY) -m models.blend --runs b8_lgbm_f345 d2_lgbm_f3458 b12_lgbm_f345_bag3 --run-id e1_blend_b8_d2_b12
 
 select:
 	cp submissions/$(BASELINE).csv submissions/submission.csv
