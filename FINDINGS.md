@@ -175,6 +175,16 @@ their same-type rivals). Entry + exit coordination are about half of b8's ≈1,0
 show no state change at all around the labelled moment (task age 60–150 s, nothing in `k_out_*`, `x_isc_*`, cleared
 level or tool flags), so only priors can rank them - which is where b1-style models top out.
 
+**Last look-ahead attempts (deadline day), vs b8 0.923:**
+
+| Run | Result |
+|---|---|
+| b8 + f8 aircraft task-set changes (`d2_lgbm_f3458`, 600 rounds) | 0.9226 ± 0.0218 - flat (folds .958 .901 .904 .918 .932); stopped at the 1 h limit before its test refit, so no submission file |
+| b8 + f7 cross-controller consensus (`d1_consensus_f345`) | 3 of 5 folds before the 1 h limit: .949 .904 .917 vs b8 .952 .898 .911 (+0.3 pt, noise); not logged |
+| blends of b8 with the causal consensus models | 0.905-0.923 - no gain |
+
+Both runs shared 4 cores and ran ~3x slower than alone; b8 stays the submission.
+
 ## Causal track: current and earlier snapshots only (0.659 → 0.673)
 
 If predictions must be made snapshot by snapshot, everything that reads later snapshots (f3 / f4 / f5 look-ahead)
